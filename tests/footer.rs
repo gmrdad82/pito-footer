@@ -1,0 +1,256 @@
+mod common;
+
+use common::{STYLES, draw, show, widest};
+use pito_footer::{Footer, Help, Hint, Key, Notice, Segment, Tone};
+use ratatui::style::{Color, Style};
+
+const HINTS: [Hint; 6] = [
+    Hint::new("↑↓", "move"),
+    Hint::new("enter", "open").rank(1),
+    Hint::new("/", "search").rank(3),
+    Hint::new("s", "stop").rank(2),
+    Hint::new("?", "help").rank(4),
+    Hint::new("ctrl+c", "twice quit").pinned(),
+];
+
+fn footer() -> Footer<'static> {
+    Footer::new(&HINTS).styles(STYLES)
+}
+
+#[test]
+fn hints_draw_key_in_accent_and_label_muted_under_a_rule() {
+    let footer = footer().notice(Some(Notice::legend("✓ done · ✗ failed")));
+    assert_eq!(footer.height(90), 3);
+    let drawn = draw(footer, 90, 3);
+    assert_eq!(
+        drawn.text,
+        [
+            "─".repeat(90).as_str(),
+            "↑↓ move · enter open · / search · s stop · ? help · ctrl+c twice quit",
+            "✓ done · ✗ failed",
+        ],
+        "\n{}",
+        show(&drawn)
+    );
+    assert_eq!(drawn.marks[0], "r".repeat(90));
+    assert_eq!(
+        drawn.marks[1],
+        "AAmmmmmmmmAAAAAmmmmmmmmAmmmmmmmmmmAmmmmmmmmAmmmmmmmmAAAAAAmmmmmmmmmmm"
+    );
+    assert_eq!(drawn.marks[2], "m".repeat(17));
+}
+
+#[test]
+fn the_least_important_hints_drop_first_and_order_is_kept() {
+    let line = |width: u16| draw(footer().rule(false), width, 1).text[0].clone();
+    assert_eq!(
+        line(69),
+        "↑↓ move · enter open · / search · s stop · ? help · ctrl+c twice quit"
+    );
+    assert_eq!(
+        line(68),
+        "↑↓ move · enter open · / search · s stop · ctrl+c twice quit"
+    );
+    assert_eq!(
+        line(59),
+        "↑↓ move · enter open · s stop · ctrl+c twice quit"
+    );
+    assert_eq!(line(48), "↑↓ move · enter open · ctrl+c twice quit");
+    assert_eq!(line(39), "↑↓ move · ctrl+c twice quit");
+    assert_eq!(line(26), "ctrl+c twice quit");
+    assert_eq!(line(10), "ctrl+c tw…");
+}
+
+#[test]
+fn ties_drop_the_later_hint() {
+    let hints = [
+        Hint::new("a", "one"),
+        Hint::new("b", "two"),
+        Hint::new("c", "three"),
+    ];
+    let drawn = draw(Footer::new(&hints).rule(false), 16, 1);
+    assert_eq!(drawn.text[0], "a one · b two");
+}
+
+#[test]
+fn help_hides_all_but_pinned_hints() {
+    let mut help = Help::default();
+    assert!(help.open());
+    assert!(!help.key(Key::Char('h')));
+    assert!(help.key(Key::Char('?')));
+    assert!(!help.open());
+    let closed = footer().help(&help);
+    assert_eq!(closed.height(80), 2);
+    assert_eq!(draw(closed, 80, 2).text[1], "ctrl+c twice quit");
+    let bare = [Hint::new("enter", "open")];
+    assert_eq!(Footer::new(&bare).open(false).height(80), 0);
+    let notice = Footer::new(&bare)
+        .open(false)
+        .notice(Some(Notice::accent("ctrl+c again to quit")));
+    assert_eq!(notice.height(80), 2);
+    let help = Help::new(false).toggle_on(Key::Char('h'));
+    assert!(help.wants(Key::Char('h')));
+    assert!(!help.wants(Key::Char('?')));
+}
+
+#[test]
+fn wrap_mode_flows_every_hint_over_lines() {
+    let footer = footer().wrap(true).separator(" • ");
+    assert_eq!(footer.height(30), 4);
+    let drawn = draw(footer, 30, 4);
+    assert_eq!(
+        drawn.text[1..],
+        [
+            "↑↓ move • enter open",
+            "/ search • s stop • ? help",
+            "ctrl+c twice quit"
+        ],
+        "\n{}",
+        show(&drawn)
+    );
+    assert_eq!(footer.height(100), 2);
+}
+
+#[test]
+fn notice_tones_use_the_app_styles() {
+    let tones = [
+        (Tone::Ink, 'i'),
+        (Tone::Muted, 'm'),
+        (Tone::Accent, 'A'),
+        (Tone::Alert, 'x'),
+    ];
+    for (tone, mark) in tones {
+        let footer = Footer::new(&[])
+            .styles(STYLES)
+            .notice(Some(Notice::new("Saved", tone)));
+        let drawn = draw(footer, 10, 2);
+        assert_eq!(drawn.text[1], "Saved");
+        assert_eq!(drawn.marks[1], mark.to_string().repeat(5), "{tone:?}");
+    }
+}
+
+#[test]
+fn a_long_notice_over_the_hints_wraps_in_their_place() {
+    let text = "The import failed: the file could not be read because another program holds it";
+    let footer = footer().notice(Some(Notice::alert(text).over()));
+    assert_eq!(footer.height(40), 3);
+    let drawn = draw(footer, 40, 3);
+    assert_eq!(
+        drawn.text[1..],
+        [
+            "The import failed: the file could not be",
+            "read because another program holds it",
+        ],
+        "\n{}",
+        show(&drawn)
+    );
+    assert!(!footer.shown("enter", 40));
+    let drawn = draw(footer, 30, 3);
+    assert_eq!(
+        drawn.text[1..],
+        [
+            "The import failed: the file",
+            "could not be read because ano…"
+        ],
+        "\n{}",
+        show(&drawn)
+    );
+    let short = footer.notice(Some(Notice::alert("Import failed").over()));
+    assert_eq!(
+        draw(short, 40, 3).text[1..],
+        ["↑↓ move · enter open · ctrl+c twice quit", "Import failed"]
+    );
+}
+
+#[test]
+fn keys_follow_display() {
+    let footer = footer();
+    assert!(footer.shown("/", 80));
+    assert!(!footer.shown("/", 50));
+    assert!(footer.shown("s", 50));
+    assert!(footer.shown("ctrl+c", 20));
+    assert!(!footer.shown("x", 80));
+    assert!(!footer.open(false).shown("s", 80));
+    assert!(footer.open(false).shown("ctrl+c", 80));
+    assert!(footer.wrap(true).shown("/", 20));
+}
+
+#[test]
+fn status_segments_drop_and_shrink_by_rank() {
+    const WHITE: Style = Style::new().fg(Color::White);
+    const GREEN: Style = Style::new().fg(Color::Green);
+    const MAGENTA: Style = Style::new().fg(Color::Magenta);
+    const GRAY: Style = Style::new().fg(Color::DarkGray);
+    let segments = [
+        Segment::text(" NORMAL ", WHITE),
+        Segment::text("3 selected of 40 items", GRAY)
+            .shrink()
+            .rank(1),
+        Segment::hints(&HINTS).rank(5),
+        Segment::text("12:30", GREEN).right().rank(3),
+        Segment::text("page 1/2", MAGENTA).right().rank(2),
+    ];
+    let status = Footer::status(&segments).styles(STYLES);
+    let line = |width: u16| draw(status, width, 1).text[0].clone();
+    assert_eq!(status.height(120), 1);
+    assert_eq!(
+        line(120),
+        " NORMAL  3 selected of 40 items ↑↓ move · enter open · / search · s stop · ? help · ctrl+c twice quit     12:30 page 1/2"
+    );
+    assert_eq!(
+        line(80),
+        " NORMAL  3 selected of 40 items ↑↓ move · ctrl+c twice quit       12:30 page 1/2"
+    );
+    assert_eq!(
+        line(50),
+        " NORMAL  3 selec… ctrl+c twice quit 12:30 page 1/2"
+    );
+    assert_eq!(line(30), " NORMAL  3 sel… 12:30 page 1/2");
+    assert_eq!(line(8), " NORMAL");
+    for width in 1..=130 {
+        assert!(
+            widest(&draw(status, width, 1)) <= usize::from(width),
+            "{width}"
+        );
+    }
+}
+
+#[test]
+fn every_width_fits_and_clips_by_cell() {
+    let hints = [
+        Hint::new("↑↓", "mută"),
+        Hint::new("enter", "deschide").rank(1),
+        Hint::new("ș", "șterge înregistrarea").rank(2),
+        Hint::new("ctrl+c ctrl+c", "ieșire").pinned(),
+    ];
+    let footer = Footer::new(&hints).styles(STYLES).separator(" • ");
+    assert_eq!(
+        draw(footer, 80, 2).text[1],
+        "↑↓ mută • enter deschide • ș șterge înregistrarea • ctrl+c ctrl+c ieșire"
+    );
+    assert_eq!(
+        draw(footer, 40, 2).text[1],
+        "↑↓ mută • ctrl+c ctrl+c ieșire"
+    );
+    assert_eq!(draw(footer, 15, 2).text[1], "ctrl+c ctrl+c …");
+    for width in 1..=90 {
+        for wrap in [false, true] {
+            let footer = footer.wrap(wrap);
+            let drawn = draw(footer, width, footer.height(width).max(1));
+            assert!(widest(&drawn) <= usize::from(width), "{width} {wrap}");
+        }
+    }
+    let wide = [Hint::new("日本", "語のテキスト")];
+    assert_eq!(
+        draw(Footer::new(&wide).rule(false), 9, 1).text[0],
+        "日本 語…"
+    );
+}
+
+#[test]
+fn a_lead_word_comes_before_the_key() {
+    let hints = [Hint::new("ctrl+c", "again to quit").lead("Press")];
+    let drawn = draw(Footer::new(&hints).styles(STYLES).rule(false), 40, 1);
+    assert_eq!(drawn.text[0], "Press ctrl+c again to quit");
+    assert_eq!(drawn.marks[0], "mmmmmmAAAAAAmmmmmmmmmmmmmm");
+}
