@@ -1,6 +1,12 @@
-use ratatui::{buffer::Buffer, layout::Rect, style::Style, widgets::Widget};
+use ratatui::{
+    buffer::Buffer,
+    layout::{Position, Rect},
+    style::Style,
+    widgets::Widget,
+};
 
 use crate::confirm::ConfirmBar;
+use crate::input::InputBar;
 use crate::key::Key;
 use crate::styles::{Styles, Tone};
 use crate::text::{self, Pen};
@@ -161,6 +167,7 @@ impl Help {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Part<'a> {
     Text(&'a str, Style),
+    Spans(&'a [(&'a str, Style)]),
     Hints(&'a [Hint<'a>]),
 }
 
@@ -176,6 +183,15 @@ impl<'a> Segment<'a> {
     pub const fn text(text: &'a str, style: Style) -> Self {
         Segment {
             part: Part::Text(text, style),
+            rank: 0,
+            right: false,
+            shrink: false,
+        }
+    }
+
+    pub const fn spans(spans: &'a [(&'a str, Style)]) -> Self {
+        Segment {
+            part: Part::Spans(spans),
             rank: 0,
             right: false,
             shrink: false,
@@ -219,6 +235,7 @@ pub struct Footer<'a> {
     segments: &'a [Segment<'a>],
     notice: Option<Notice<'a>>,
     confirm: Option<ConfirmBar<'a>>,
+    input: Option<InputBar<'a>>,
     separator: &'a str,
     gap: u16,
     indent: u16,
@@ -235,6 +252,7 @@ impl<'a> Footer<'a> {
             segments: &[],
             notice: None,
             confirm: None,
+            input: None,
             separator: SEPARATOR,
             gap: 1,
             indent: 0,
@@ -260,6 +278,11 @@ impl<'a> Footer<'a> {
 
     pub fn confirm(mut self, confirm: Option<ConfirmBar<'a>>) -> Self {
         self.confirm = confirm;
+        self
+    }
+
+    pub fn input(mut self, input: Option<InputBar<'a>>) -> Self {
+        self.input = input;
         self
     }
 
@@ -306,6 +329,9 @@ impl<'a> Footer<'a> {
         if let Some(confirm) = self.confirm {
             return confirm.rule(false).height() + u16::from(self.rule);
         }
+        if let Some(input) = self.input {
+            return input.rule(false).height() + u16::from(self.rule);
+        }
         let lines = self.line_count(self.inner(width)) + u16::from(self.notice.is_some());
         if lines == 0 {
             0
@@ -316,7 +342,11 @@ impl<'a> Footer<'a> {
 
     pub fn shown(&self, key: &str, width: u16) -> bool {
         let width = self.inner(width);
-        if self.confirm.is_some() || self.takes_over(width) || self.line_count(width) == 0 {
+        if self.confirm.is_some()
+            || self.input.is_some()
+            || self.takes_over(width)
+            || self.line_count(width) == 0
+        {
             return false;
         }
         if self.wrapping() {
@@ -340,6 +370,24 @@ impl<'a> Footer<'a> {
                 .enumerate()
                 .any(|(at, hint)| kept & (1 << at) != 0 && hint.key == key)
         })
+    }
+
+    pub fn cursor(&self, area: Rect) -> Option<Position> {
+        if self.confirm.is_some() {
+            return None;
+        }
+        let input = self.input?;
+        input.rule(false).cursor(self.body(area))
+    }
+
+    fn body(&self, area: Rect) -> Rect {
+        let rule = u16::from(self.rule).min(area.height);
+        Rect {
+            x: area.x.saturating_add(self.indent.min(area.width)),
+            y: area.y.saturating_add(rule),
+            width: self.inner(area.width),
+            height: area.height - rule,
+        }
     }
 
     fn inner(&self, width: u16) -> u16 {
@@ -373,6 +421,7 @@ impl<'a> Footer<'a> {
     fn any_visible(&self) -> bool {
         (0..self.count()).any(|index| match self.segment(index).part {
             Part::Text(text, _) => !text.is_empty(),
+            Part::Spans(spans) => spans.iter().any(|(text, _)| !text.is_empty()),
             Part::Hints(hints) => hints.iter().any(|hint| self.visible(hint)),
         })
     }
@@ -455,6 +504,9 @@ impl<'a> Footer<'a> {
     fn natural(&self, segment: &Segment) -> u16 {
         match segment.part {
             Part::Text(text, _) => text::width(text),
+            Part::Spans(spans) => spans.iter().fold(0u16, |total, (text, _)| {
+                total.saturating_add(text::width(text))
+            }),
             Part::Hints(hints) => self.hints_width(hints, self.kept_hints(hints, u16::MAX)),
         }
     }
@@ -464,7 +516,7 @@ impl<'a> Footer<'a> {
             return self.natural(segment);
         }
         match segment.part {
-            Part::Text(..) => 0,
+            Part::Text(..) | Part::Spans(..) => 0,
             Part::Hints(hints) => {
                 let mut pinned = 0u64;
                 for (index, hint) in hints.iter().take(MOST).enumerate() {
@@ -535,6 +587,7 @@ impl<'a> Footer<'a> {
         };
         match segment.part {
             Part::Text(text, style) => pen.clip(text, style, width),
+            Part::Spans(spans) => pen.spans(spans, width),
             Part::Hints(hints) => {
                 let kept = self.kept_hints(hints, width);
                 let stop = x.saturating_add(width);
@@ -621,21 +674,25 @@ impl Widget for &Footer<'_> {
         if area.is_empty() || self.height(area.width) == 0 {
             return;
         }
-        let mut y = area.y;
-        if self.rule {
-            if let Some(mut pen) = Pen::new(buf, area, area.x, y) {
-                pen.fill(RULE, self.styles.rule);
-            }
-            y += 1;
+        if self.rule
+            && let Some(mut pen) = Pen::new(buf, area, area.x, area.y)
+        {
+            pen.fill(RULE, self.styles.rule);
         }
+        let body = self.body(area);
+        let mut y = body.y;
         let area = Rect {
-            x: area.x.saturating_add(self.indent.min(area.width)),
-            width: self.inner(area.width),
-            ..area
+            y: area.y,
+            height: area.height,
+            ..body
         };
         let rest = |y: u16| Rect::new(area.x, y, area.width, area.bottom().saturating_sub(y));
         if let Some(confirm) = self.confirm {
-            confirm.rule(false).styles(self.styles).render(rest(y), buf);
+            confirm.rule(false).styles(self.styles).render(body, buf);
+            return;
+        }
+        if let Some(input) = self.input {
+            input.rule(false).styles(self.styles).render(body, buf);
             return;
         }
         if self.takes_over(area.width)

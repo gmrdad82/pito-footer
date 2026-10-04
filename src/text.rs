@@ -84,10 +84,35 @@ impl<'a> Pen<'a> {
     }
 
     pub(crate) fn clip(&mut self, text: &str, style: Style, room: u16) {
-        let room = room.min(self.room());
-        if width(text) <= room {
+        if width(text) <= room.min(self.room()) {
             return self.put(text, style);
         }
+        self.cut(text, style, room);
+    }
+
+    pub(crate) fn spans(&mut self, spans: &[(&str, Style)], room: u16) {
+        let stop = self.x.saturating_add(room.min(self.room()));
+        for (index, (text, style)) in spans.iter().enumerate() {
+            let room = stop.saturating_sub(self.x);
+            let rest = spans[index..]
+                .iter()
+                .fold(0u16, |total, (text, _)| total.saturating_add(width(text)));
+            if rest <= room {
+                for (text, style) in &spans[index..] {
+                    self.put(text, *style);
+                }
+                return;
+            }
+            if width(text) < room {
+                self.put(text, *style);
+                continue;
+            }
+            return self.cut(text, *style, room);
+        }
+    }
+
+    pub(crate) fn cut(&mut self, text: &str, style: Style, room: u16) {
+        let room = room.min(self.room());
         if room == 0 {
             return;
         }

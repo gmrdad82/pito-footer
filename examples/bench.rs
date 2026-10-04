@@ -1,7 +1,9 @@
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
-use pito_footer::{Confirm, ConfirmBar, Footer, Hint, Notice, Segment, Styles, Words};
+use pito_footer::{
+    Confirm, ConfirmBar, Footer, Hint, Input, InputBar, Notice, Segment, Styles, Words,
+};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -25,6 +27,11 @@ const HINTS: [Hint; 12] = [
     Hint::new("y", "copy").rank(5),
     Hint::new("?", "help").rank(6),
     Hint::new("ctrl+c", "twice quit").pinned(),
+];
+
+const PAGE: [(&str, Style); 2] = [
+    ("page 1/2 ", Style::new()),
+    ("●○", Style::new().fg(Color::Magenta)),
 ];
 
 fn main() {
@@ -51,8 +58,12 @@ fn main() {
         .rank(1),
         Segment::hints(&HINTS).rank(6),
         Segment::text("12:30:45", Style::new()).right().rank(3),
-        Segment::text("page 1/2 ●○", Style::new()).right().rank(2),
+        Segment::spans(&PAGE).right().rank(2),
     ];
+    let input = Input::new().with("the quick brown fox jumps over the lazy dog, ș and 日本語");
+    let key = Input::new()
+        .masked(true)
+        .with("sk-0123456789abcdefghijklmnopqrstuvwxyz");
     let words = Words::new("Yes", "No").hint("y/n choose · enter accept · esc cancel");
     let confirm = Confirm::new();
     let area = Rect::new(0, 0, WIDTH, HEIGHT);
@@ -79,6 +90,14 @@ fn main() {
             ConfirmBar::new("Stop the import of 12 items?", &confirm, words)
                 .styles(styles)
                 .render(Rect::new(0, 20, WIDTH, 3), &mut buffer);
+        } else {
+            InputBar::new("Search", &input)
+                .hint("enter search · esc cancel")
+                .styles(styles)
+                .render(Rect::new(0, 20, 48, 3), &mut buffer);
+            InputBar::new("Key", &key)
+                .styles(styles)
+                .render(Rect::new(0, 24, WIDTH, 2), &mut buffer);
         }
         let took = started.elapsed();
         black_box(&buffer);

@@ -11,6 +11,9 @@ pub enum Key {
     Right,
     Up,
     Down,
+    Home,
+    End,
+    Delete,
     Other,
 }
 
@@ -35,6 +38,9 @@ impl From<crossterm::event::KeyEvent> for Key {
             KeyCode::Right => Key::Right,
             KeyCode::Up => Key::Up,
             KeyCode::Down => Key::Down,
+            KeyCode::Home => Key::Home,
+            KeyCode::End => Key::End,
+            KeyCode::Delete => Key::Delete,
             _ => Key::Other,
         }
     }

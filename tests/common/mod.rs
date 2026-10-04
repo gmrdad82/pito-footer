@@ -32,6 +32,9 @@ pub fn draw(widget: impl Widget, width: u16, height: u16) -> Drawn {
 }
 
 fn mark(style: Style) -> char {
+    if style.add_modifier.contains(Modifier::REVERSED) {
+        return 'C';
+    }
     let bold = style.add_modifier.contains(Modifier::BOLD);
     let under = style.add_modifier.contains(Modifier::UNDERLINED);
     match (style.fg, bold, under) {

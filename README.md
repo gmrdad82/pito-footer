@@ -1,13 +1,14 @@
 # pito-footer
 
 The bottom of a pito terminal app, as a small ratatui 0.30 crate: key hints
-that fit the width, a notice line, a y/n confirm, and a quit guard. The look
+that fit the width, a notice line, a y/n confirm, a one-line input, and a
+quit guard. The look
 is in the style of HEY's terminal UI. It has no app logic and no words of its
 own: the app passes in every hint, every word, every key and every style, so
 any language works.
 
 ```toml
-pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.1.1" }
+pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.2.0" }
 ```
 
 Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
@@ -40,6 +41,10 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
   and hint segments on one row, left or right aligned; the highest rank
   drops first, shrinkable segments are clipped to the space left, and the
   hints are just one segment among them.
+- **Status spans:** `Segment::spans(&[(text, Style)])` is one text segment in
+  several styles, so a percentage or page dots carry their own colour; it
+  measures, drops and shrinks as one segment and clips with one ellipsis in
+  the style of the span it cuts. `Segment::text(text, style)` still works.
 - **A confirm, in the bottom bar or a notice row.** `Confirm` holds the
   choice (No unless the app starts it on Yes); `ConfirmKeys` sets the accept
   and cancel keys (`HEY`: y/n, arrows, enter accepts, esc cancels; `ENTER`:
@@ -47,6 +52,25 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
   over a hint line, or inline on one row, in the app's words, and the footer
   can carry it in place of the hints. It returns the answer and never runs
   anything.
+- **A one-line input.** `Input` holds the text and the cursor; the app
+  feeds it keys and gets an `Edit` back: `Changed` when the text changed,
+  `Held` for a key it used without a change (a move), `Submit(text)` on
+  enter, `Cancel` on esc, and `Pass` for every key that isn't the input's,
+  such as ctrl+c or tab. It never submits, clears or closes anything itself.
+  Editing is by grapheme and cell: left/right, home/end and ctrl+a/ctrl+e,
+  backspace and delete, ctrl+u (to the start) and ctrl+w (the word before the
+  cursor), so diacritics, combining marks and wide glyphs move and delete
+  whole. `paste(text)` takes a bracketed paste and keeps it on one line.
+- **An input bar.** `InputBar` draws the app's label, then the text with a
+  reversed caret cell, or the app's placeholder while empty, scrolling with
+  "…" at either cut end to keep the caret in view; an optional rule above and
+  hint line below, like the confirm. `cursor(area)` says where the caret is,
+  for an app that shows the terminal's own cursor (`caret(false)` drops the
+  drawn one). The footer can carry it in place of the hints.
+- **A masked input for keys:** `Input::masked(true)` draws only the first and
+  last four characters, the rest as `•` (or the app's `mask`), and all of a
+  value of eight or fewer. The value stays whole for `Submit`, and neither
+  `Input`'s nor `Edit`'s `Debug` prints it.
 - **A quit guard with modes:** `Twice` (the first press arms and shows the
   app's "again" notice, a second inside the window quits, any other key
   disarms), `Ask` (the same, but while the app says work is running the
@@ -68,22 +92,29 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
 
 ```text
 pub enum Key { Char(char), Ctrl(char), Tab, BackTab, Enter, Esc, Backspace,
-               Left, Right, Up, Down, Other }
+               Left, Right, Up, Down, Home, End, Delete, Other }
 pub struct Styles { accent, muted, alert, ink, rule, good }   // all Style::new() by default
                                          // good: Option<Style>, ink until set
 pub enum Tone { Ink, Muted, Accent, Alert, Good }
 Hint::new(key, label).rank(u8).lead(text).pinned()
 Notice::new(text, tone) | legend(text) | accent(text) | alert(text) | good(text); .over()
 Help::new(open).toggle_on(Key); open(), toggle(), wants(Key), key(Key) -> bool
-Segment::text(text, style) | hints(&[Hint]); .rank(u8).right().shrink()
+Segment::text(text, style) | spans(&[(text, Style)]) | hints(&[Hint]);
+  .rank(u8).right().shrink()
 Footer::new(&[Hint]) | status(&[Segment])
-  .notice(Option<Notice>).confirm(Option<ConfirmBar>).separator(..).gap(u16)
-  .open(bool).help(&Help).rule(bool).wrap(bool).indent(u16).styles(..)
-  height(width), shown(key, width)
+  .notice(Option<Notice>).confirm(Option<ConfirmBar>).input(Option<InputBar>)
+  .separator(..).gap(u16).open(bool).help(&Help).rule(bool).wrap(bool)
+  .indent(u16).styles(..)
+  height(width), shown(key, width), cursor(area) -> Option<Position>
 ConfirmKeys { yes, no: &'static [Key], choose }; ConfirmKeys::HEY, ConfirmKeys::ENTER
 Confirm::new().keys(..).start(Answer); yes(), choosing(), key(Key) -> Option<Answer>
 Words::new(yes, no).hint(text)
 ConfirmBar::new(question, &confirm, words).rule(bool).inline(bool).tone(Tone).styles(..)
+pub enum Edit { Pass, Held, Changed, Submit(String), Cancel }
+Input::new().masked(bool).with(text); value(), cursor(), is_empty(),
+  is_masked(), set(text), clear(), key(Key) -> Edit, paste(text) -> Edit
+InputBar::new(label, &input).placeholder(text).hint(text).mask(glyph)
+  .rule(bool).caret(bool).tone(Tone).styles(..); height(), cursor(area)
 Wording::new(again).ask(question)
 QuitGuard::new(wording).mode(Mode).window(Duration).triggers(&[Key]).confirm(Confirm)
   key(Key, now, busy) -> Guard { Pass, Held, Quit }
@@ -132,6 +163,46 @@ fn draw(frame: &mut Frame, guard: &QuitGuard, help: &Help) {
     frame.render_widget(footer, Rect { y: area.bottom().saturating_sub(height), height, ..area });
 }
 ```
+
+## An input prompt
+
+```rust,standalone_crate
+use pito_footer::{Edit, Footer, Hint, Input, InputBar, Key, Styles};
+use ratatui::{Frame, layout::Rect};
+
+const HINTS: [Hint; 1] = [Hint::new("/", "search")];
+
+fn key(input: &mut Option<Input>, key: Key) -> Option<String> {
+    let field = input.as_mut()?;
+    match field.key(key) {
+        Edit::Submit(text) => {
+            *input = None;
+            Some(text)
+        }
+        Edit::Cancel => {
+            *input = None;
+            None
+        }
+        Edit::Pass | Edit::Held | Edit::Changed => None,
+    }
+}
+
+fn draw(frame: &mut Frame, input: Option<&Input>, styles: Styles) {
+    let bar = input.map(|input| {
+        InputBar::new("Search", input)
+            .placeholder("type to filter")
+            .hint("enter search · esc cancel")
+    });
+    let footer = Footer::new(&HINTS).styles(styles).input(bar);
+    let area = frame.area();
+    let height = footer.height(area.width);
+    let area = Rect { y: area.bottom().saturating_sub(height), height, ..area };
+    frame.render_widget(footer, area);
+}
+```
+
+A bracketed paste arrives as its own event, not a key: hand its text to
+`Input::paste`.
 
 ## Development
 

@@ -315,3 +315,36 @@ fn a_lead_word_comes_before_the_key() {
     assert_eq!(drawn.text[0], "Press ctrl+c again to quit");
     assert_eq!(drawn.marks[0], "mmmmmmAAAAAAmmmmmmmmmmmmmm");
 }
+
+#[test]
+fn a_status_text_carries_several_styled_spans() {
+    const GREEN: Style = Style::new().fg(Color::Green);
+    const GRAY: Style = Style::new().fg(Color::DarkGray);
+    const MAGENTA: Style = Style::new().fg(Color::Magenta);
+    let progress = [("copied ", GRAY), ("42%", GREEN), (" of 3 files", GRAY)];
+    let dots = [("●", MAGENTA), ("○○", GRAY)];
+    let segments = [
+        Segment::spans(&progress).shrink(),
+        Segment::spans(&dots).right().rank(1),
+        Segment::text("v2", GRAY).right().rank(2),
+    ];
+    let status = Footer::status(&segments).styles(STYLES);
+    let drawn = draw(status, 40, 1);
+    assert_eq!(drawn.text[0], "copied 42% of 3 files             ●○○ v2");
+    assert_eq!(drawn.marks[0], "mmmmmmmgggmmmmmmmmmmm             amm mm");
+    let drawn = draw(status, 17, 1);
+    assert_eq!(drawn.text[0], "copied 42… ●○○ v2");
+    assert_eq!(drawn.marks[0], "mmmmmmmggg amm mm");
+    let drawn = draw(status, 15, 1);
+    assert_eq!(drawn.text[0], "copied … ●○○ v2");
+    assert_eq!(drawn.marks[0], "mmmmmmmg amm mm");
+    assert_eq!(draw(status, 3, 1).text[0], "co…");
+    let empty = [("", GRAY)];
+    assert_eq!(Footer::status(&[Segment::spans(&empty)]).height(40), 0);
+    for width in 1..=50 {
+        assert!(
+            widest(&draw(status, width, 1)) <= usize::from(width),
+            "{width}"
+        );
+    }
+}
