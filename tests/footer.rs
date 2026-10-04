@@ -130,6 +130,67 @@ fn notice_tones_use_the_app_styles() {
 }
 
 #[test]
+fn a_good_notice_falls_back_to_ink_until_its_style_is_set() {
+    let notice = Some(Notice::good("Saved"));
+    let footer = Footer::new(&[]).styles(STYLES).notice(notice);
+    assert_eq!(Notice::good("Saved").tone, Tone::Good);
+    assert_eq!(STYLES.good, None);
+    assert_eq!(draw(footer, 10, 2).marks[1], "iiiii");
+    let green = STYLES.good(Style::new().fg(Color::Green));
+    let footer = footer.styles(green);
+    assert_eq!(draw(footer, 10, 2).marks[1], "ggggg");
+}
+
+#[test]
+fn an_indent_insets_the_hints_and_the_notice_but_not_the_rule() {
+    let footer = footer().indent(2).notice(Some(Notice::legend("✓ done")));
+    assert_eq!(footer.height(42), 3);
+    let drawn = draw(footer, 42, 3);
+    assert_eq!(
+        drawn.text,
+        [
+            "─".repeat(42).as_str(),
+            "  ↑↓ move · enter open · ctrl+c twice quit",
+            "  ✓ done",
+        ],
+        "\n{}",
+        show(&drawn)
+    );
+    assert_eq!(drawn.marks[0], "r".repeat(42));
+    let line = |indent: u16, width: u16| {
+        draw(footer.indent(indent).rule(false).notice(None), width, 1).text[0].clone()
+    };
+    assert_eq!(line(0, 48), "↑↓ move · enter open · ctrl+c twice quit");
+    assert_eq!(line(2, 48), "  ↑↓ move · enter open · ctrl+c twice quit");
+    assert_eq!(line(2, 41), "  ↑↓ move · ctrl+c twice quit");
+    assert!(footer.shown("enter", 42));
+    assert!(!footer.shown("enter", 41));
+    for width in 1..=80 {
+        let drawn = draw(footer, width, 3);
+        assert!(widest(&drawn) <= usize::from(width), "{width}");
+    }
+}
+
+#[test]
+fn an_indent_wraps_in_the_inset_width() {
+    let footer = footer().wrap(true).separator(" • ").indent(10);
+    assert_eq!(footer.height(40), 4);
+    assert_eq!(footer.indent(0).height(40), 3);
+    let drawn = draw(footer, 40, 4);
+    assert_eq!(
+        drawn.text,
+        [
+            "─".repeat(40).as_str(),
+            "          ↑↓ move • enter open",
+            "          / search • s stop • ? help",
+            "          ctrl+c twice quit",
+        ],
+        "\n{}",
+        show(&drawn)
+    );
+}
+
+#[test]
 fn a_long_notice_over_the_hints_wraps_in_their_place() {
     let text = "The import failed: the file could not be read because another program holds it";
     let footer = footer().notice(Some(Notice::alert(text).over()));

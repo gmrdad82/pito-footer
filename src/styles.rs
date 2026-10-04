@@ -7,6 +7,7 @@ pub struct Styles {
     pub alert: Style,
     pub ink: Style,
     pub rule: Style,
+    pub good: Option<Style>,
 }
 
 impl Styles {
@@ -17,6 +18,7 @@ impl Styles {
             alert: Style::new(),
             ink: Style::new(),
             rule: Style::new(),
+            good: None,
         }
     }
 
@@ -45,6 +47,11 @@ impl Styles {
         self
     }
 
+    pub const fn good(mut self, style: Style) -> Self {
+        self.good = Some(style);
+        self
+    }
+
     pub(crate) fn lit(&self) -> Style {
         self.accent.add_modifier(Modifier::BOLD)
     }
@@ -57,6 +64,7 @@ pub enum Tone {
     Muted,
     Accent,
     Alert,
+    Good,
 }
 
 impl Tone {
@@ -66,6 +74,7 @@ impl Tone {
             Tone::Muted => styles.muted,
             Tone::Accent => styles.lit(),
             Tone::Alert => styles.alert,
+            Tone::Good => styles.good.unwrap_or(styles.ink),
         }
     }
 }

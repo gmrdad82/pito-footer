@@ -7,7 +7,7 @@ own: the app passes in every hint, every word, every key and every style, so
 any language works.
 
 ```toml
-pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.1.0" }
+pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.1.1" }
 ```
 
 Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
@@ -25,8 +25,15 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
   toggle); pinned hints and the notice stay. An app whose `?` opens a help
   page instead just doesn't use `Help`.
 - **A notice line** under the hints for a legend, a result or a warning, in
-  the app's ink, muted, accent or alert. A notice marked `over()` that's too
+  the app's ink, muted, accent, alert or good. A notice marked `over()` that's too
   long for one row takes the hint rows' place and wraps across them.
+- **A good tone** for success: `Tone::Good` and `Notice::good(text)` use
+  `Styles::good`, and fall back to the ink style until the app sets one.
+- **An indent:** `indent(n)` insets the hints, the notice and the confirm by
+  `n` cells while the rule stays full width; hints drop and wrap within the
+  inset width.
+- **Text keeps its own style:** the rules are rows of their own, so no hint,
+  notice, confirm or segment ever picks up the rule's modifiers, such as DIM.
 - **Keys follow display:** `shown(key, width)` says whether a key's hint is
   on screen now, so an app can accept only the keys it shows.
 - **Footer segments with drop priority:** `Footer::status` lays out text
@@ -62,15 +69,16 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
 ```text
 pub enum Key { Char(char), Ctrl(char), Tab, BackTab, Enter, Esc, Backspace,
                Left, Right, Up, Down, Other }
-pub struct Styles { accent, muted, alert, ink, rule }   // all Style::new() by default
-pub enum Tone { Ink, Muted, Accent, Alert }
+pub struct Styles { accent, muted, alert, ink, rule, good }   // all Style::new() by default
+                                         // good: Option<Style>, ink until set
+pub enum Tone { Ink, Muted, Accent, Alert, Good }
 Hint::new(key, label).rank(u8).lead(text).pinned()
-Notice::new(text, tone) | legend(text) | accent(text) | alert(text); .over()
+Notice::new(text, tone) | legend(text) | accent(text) | alert(text) | good(text); .over()
 Help::new(open).toggle_on(Key); open(), toggle(), wants(Key), key(Key) -> bool
 Segment::text(text, style) | hints(&[Hint]); .rank(u8).right().shrink()
 Footer::new(&[Hint]) | status(&[Segment])
   .notice(Option<Notice>).confirm(Option<ConfirmBar>).separator(..).gap(u16)
-  .open(bool).help(&Help).rule(bool).wrap(bool).styles(..)
+  .open(bool).help(&Help).rule(bool).wrap(bool).indent(u16).styles(..)
   height(width), shown(key, width)
 ConfirmKeys { yes, no: &'static [Key], choose }; ConfirmKeys::HEY, ConfirmKeys::ENTER
 Confirm::new().keys(..).start(Answer); yes(), choosing(), key(Key) -> Option<Answer>

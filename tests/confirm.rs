@@ -2,6 +2,12 @@ mod common;
 
 use common::{STYLES, draw, show, widest};
 use pito_footer::{Answer, Confirm, ConfirmBar, ConfirmKeys, Footer, Hint, Key, Tone, Words};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    style::{Color, Modifier, Style},
+    widgets::Widget,
+};
 
 const WORDS: Words = Words::new("Yes", "No").hint("y/n choose · enter accept · esc cancel");
 
@@ -155,4 +161,37 @@ fn the_footer_carries_the_confirm_in_place_of_hints() {
         ]
     );
     assert_eq!(drawn.marks[0], "r".repeat(60));
+}
+
+#[test]
+fn the_footer_insets_the_confirm_but_not_the_rule() {
+    let confirm = Confirm::new();
+    let footer = Footer::new(&[])
+        .styles(STYLES)
+        .indent(2)
+        .confirm(Some(ConfirmBar::new("Remove item 3?", &confirm, WORDS)));
+    assert_eq!(footer.height(60), 3);
+    let drawn = draw(footer, 60, 3);
+    assert_eq!(
+        drawn.text[1..],
+        [
+            "  Remove item 3?  Yes   ▸ No",
+            "    y/n choose · enter accept · esc cancel"
+        ]
+    );
+    assert_eq!(drawn.marks[0], "r".repeat(60));
+}
+
+#[test]
+fn a_good_tone_suits_a_confirm_too() {
+    let styles = STYLES.good(Style::new().fg(Color::Green));
+    let bar = ConfirmBar::new("Publish now?", &Confirm::new(), WORDS)
+        .tone(Tone::Good)
+        .styles(styles);
+    let drawn = draw(bar, 50, 3);
+    assert_eq!(drawn.text[1], "Publish now?  Yes   ▸ No");
+    let mut buf = Buffer::empty(Rect::new(0, 0, 50, 3));
+    bar.render(buf.area, &mut buf);
+    assert_eq!(buf[(0, 1)].fg, Color::Green);
+    assert_eq!(buf[(0, 1)].modifier, Modifier::BOLD);
 }

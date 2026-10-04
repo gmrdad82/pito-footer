@@ -102,6 +102,10 @@ impl<'a> Notice<'a> {
         Notice::new(text, Tone::Alert)
     }
 
+    pub const fn good(text: &'a str) -> Self {
+        Notice::new(text, Tone::Good)
+    }
+
     pub const fn over(mut self) -> Self {
         self.over = true;
         self
@@ -217,6 +221,7 @@ pub struct Footer<'a> {
     confirm: Option<ConfirmBar<'a>>,
     separator: &'a str,
     gap: u16,
+    indent: u16,
     open: bool,
     rule: bool,
     wrap: bool,
@@ -232,6 +237,7 @@ impl<'a> Footer<'a> {
             confirm: None,
             separator: SEPARATOR,
             gap: 1,
+            indent: 0,
             open: true,
             rule: true,
             wrap: false,
@@ -267,6 +273,11 @@ impl<'a> Footer<'a> {
         self
     }
 
+    pub fn indent(mut self, indent: u16) -> Self {
+        self.indent = indent;
+        self
+    }
+
     pub fn open(mut self, open: bool) -> Self {
         self.open = open;
         self
@@ -295,7 +306,7 @@ impl<'a> Footer<'a> {
         if let Some(confirm) = self.confirm {
             return confirm.rule(false).height() + u16::from(self.rule);
         }
-        let lines = self.line_count(width) + u16::from(self.notice.is_some());
+        let lines = self.line_count(self.inner(width)) + u16::from(self.notice.is_some());
         if lines == 0 {
             0
         } else {
@@ -304,6 +315,7 @@ impl<'a> Footer<'a> {
     }
 
     pub fn shown(&self, key: &str, width: u16) -> bool {
+        let width = self.inner(width);
         if self.confirm.is_some() || self.takes_over(width) || self.line_count(width) == 0 {
             return false;
         }
@@ -328,6 +340,10 @@ impl<'a> Footer<'a> {
                 .enumerate()
                 .any(|(at, hint)| kept & (1 << at) != 0 && hint.key == key)
         })
+    }
+
+    fn inner(&self, width: u16) -> u16 {
+        width.saturating_sub(self.indent)
     }
 
     fn count(&self) -> usize {
@@ -612,6 +628,11 @@ impl Widget for &Footer<'_> {
             }
             y += 1;
         }
+        let area = Rect {
+            x: area.x.saturating_add(self.indent.min(area.width)),
+            width: self.inner(area.width),
+            ..area
+        };
         let rest = |y: u16| Rect::new(area.x, y, area.width, area.bottom().saturating_sub(y));
         if let Some(confirm) = self.confirm {
             confirm.rule(false).styles(self.styles).render(rest(y), buf);
