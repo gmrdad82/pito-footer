@@ -12,7 +12,6 @@ use crate::styles::{Styles, Tone};
 use crate::text::{self, Pen};
 
 const SEPARATOR: &str = " · ";
-const RULE: &str = "─";
 const MOST: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -221,6 +220,15 @@ impl<'a> Segment<'a> {
         self.shrink = true;
         self
     }
+}
+
+fn mask(hints: &[Hint], keep: impl Fn(&Hint) -> bool) -> u64 {
+    hints
+        .iter()
+        .take(MOST)
+        .enumerate()
+        .filter(|(_, hint)| keep(hint))
+        .fold(0u64, |kept, (index, _)| kept | 1 << index)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -483,12 +491,7 @@ impl<'a> Footer<'a> {
     }
 
     fn kept_hints(&self, hints: &[Hint], width: u16) -> u64 {
-        let mut kept = 0u64;
-        for (index, hint) in hints.iter().take(MOST).enumerate() {
-            if self.visible(hint) {
-                kept |= 1 << index;
-            }
-        }
+        let mut kept = mask(hints, |hint| self.visible(hint));
         while kept.count_ones() > 1 && self.hints_width(hints, kept) > width {
             let drop = (0..hints.len().min(MOST))
                 .filter(|index| kept & (1 << index) != 0)
@@ -504,9 +507,7 @@ impl<'a> Footer<'a> {
     fn natural(&self, segment: &Segment) -> u16 {
         match segment.part {
             Part::Text(text, _) => text::width(text),
-            Part::Spans(spans) => spans.iter().fold(0u16, |total, (text, _)| {
-                total.saturating_add(text::width(text))
-            }),
+            Part::Spans(spans) => text::spans_width(spans),
             Part::Hints(hints) => self.hints_width(hints, self.kept_hints(hints, u16::MAX)),
         }
     }
@@ -518,12 +519,7 @@ impl<'a> Footer<'a> {
         match segment.part {
             Part::Text(..) | Part::Spans(..) => 0,
             Part::Hints(hints) => {
-                let mut pinned = 0u64;
-                for (index, hint) in hints.iter().take(MOST).enumerate() {
-                    if hint.pinned && self.visible(hint) {
-                        pinned |= 1 << index;
-                    }
-                }
+                let pinned = mask(hints, |hint| hint.pinned && self.visible(hint));
                 self.hints_width(hints, pinned)
             }
         }
@@ -674,10 +670,8 @@ impl Widget for &Footer<'_> {
         if area.is_empty() || self.height(area.width) == 0 {
             return;
         }
-        if self.rule
-            && let Some(mut pen) = Pen::new(buf, area, area.x, area.y)
-        {
-            pen.fill(RULE, self.styles.rule);
+        if self.rule {
+            text::rule(buf, area, self.styles.rule);
         }
         let body = self.body(area);
         let mut y = body.y;
@@ -719,8 +713,7 @@ impl Widget for &Footer<'_> {
             && y < area.bottom()
             && let Some(mut pen) = Pen::new(buf, area, area.x, y)
         {
-            let room = pen.room();
-            pen.clip(notice.text, notice.tone.style(&self.styles), room);
+            pen.rest(notice.text, notice.tone.style(&self.styles));
         }
     }
 }

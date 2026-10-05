@@ -12,11 +12,9 @@ use crate::key::Key;
 use crate::styles::{Styles, Tone};
 use crate::text::{self, ELLIPSIS, Pen};
 
-const RULE: &str = "─";
 const MASK: &str = "•";
 const SHOWN: usize = 4;
 const GAP: u16 = 1;
-const INDENT: &str = "  ";
 const CARET: &str = " ";
 
 #[derive(Clone, PartialEq, Eq)]
@@ -403,8 +401,7 @@ impl<'a> InputBar<'a> {
             match graphemes.next() {
                 Some(first) => {
                     pen.put(first, caret(muted));
-                    let room = pen.room();
-                    pen.clip(graphemes.as_str(), muted, room);
+                    pen.rest(graphemes.as_str(), muted);
                 }
                 None => pen.put(CARET, caret(ink)),
             }
@@ -446,10 +443,8 @@ impl Widget for &InputBar<'_> {
         if area.is_empty() {
             return;
         }
-        if self.rule
-            && let Some(mut pen) = Pen::new(buf, area, area.x, area.y)
-        {
-            pen.fill(RULE, self.styles.rule);
+        if self.rule {
+            text::rule(buf, area, self.styles.rule);
         }
         let Some(field) = self.field(area) else {
             return;
@@ -462,10 +457,7 @@ impl Widget for &InputBar<'_> {
         if let Some(hint) = self.hint
             && let Some(mut pen) = Pen::new(buf, area, area.x, field.line.y.saturating_add(1))
         {
-            let muted = self.styles.muted;
-            pen.put(INDENT, muted);
-            let room = pen.room();
-            pen.clip(hint, muted, room);
+            pen.indented(hint, self.styles.muted);
         }
     }
 }

@@ -3,9 +3,23 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 pub(crate) const ELLIPSIS: &str = "…";
+pub(crate) const RULE: &str = "─";
+pub(crate) const INDENT: &str = "  ";
 
 pub(crate) fn width(text: &str) -> u16 {
     u16::try_from(text.width()).unwrap_or(u16::MAX)
+}
+
+pub(crate) fn spans_width(spans: &[(&str, Style)]) -> u16 {
+    spans
+        .iter()
+        .fold(0u16, |total, (text, _)| total.saturating_add(width(text)))
+}
+
+pub(crate) fn rule(buf: &mut Buffer, area: Rect, style: Style) {
+    if let Some(mut pen) = Pen::new(buf, area, area.x, area.y) {
+        pen.fill(RULE, style);
+    }
 }
 
 pub(crate) fn flow(buf: &mut Buffer, area: Rect, text: &str, style: Style) {
@@ -90,14 +104,20 @@ impl<'a> Pen<'a> {
         self.cut(text, style, room);
     }
 
+    pub(crate) fn rest(&mut self, text: &str, style: Style) {
+        self.clip(text, style, self.room());
+    }
+
+    pub(crate) fn indented(&mut self, text: &str, style: Style) {
+        self.put(INDENT, style);
+        self.rest(text, style);
+    }
+
     pub(crate) fn spans(&mut self, spans: &[(&str, Style)], room: u16) {
         let stop = self.x.saturating_add(room.min(self.room()));
         for (index, (text, style)) in spans.iter().enumerate() {
             let room = stop.saturating_sub(self.x);
-            let rest = spans[index..]
-                .iter()
-                .fold(0u16, |total, (text, _)| total.saturating_add(width(text)));
-            if rest <= room {
+            if spans_width(&spans[index..]) <= room {
                 for (text, style) in &spans[index..] {
                     self.put(text, *style);
                 }

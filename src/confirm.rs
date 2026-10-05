@@ -10,10 +10,8 @@ use crate::styles::{Styles, Tone};
 use crate::text::{self, Pen};
 
 const MARK: &str = "▸ ";
-const RULE: &str = "─";
 const BEFORE: u16 = 2;
 const BETWEEN: u16 = 3;
-const INDENT: &str = "  ";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Answer {
@@ -228,9 +226,7 @@ impl Widget for &ConfirmBar<'_> {
         }
         let mut y = area.y;
         if self.rule {
-            if let Some(mut pen) = Pen::new(buf, area, area.x, y) {
-                pen.fill(RULE, self.styles.rule);
-            }
+            text::rule(buf, area, self.styles.rule);
             y += 1;
         }
         let muted = self.styles.muted;
@@ -241,9 +237,7 @@ impl Widget for &ConfirmBar<'_> {
             if self.inline
                 && let Some(hint) = self.words.hint
             {
-                pen.put(INDENT, muted);
-                let room = pen.room();
-                pen.clip(hint, muted, room);
+                pen.indented(hint, muted);
                 return;
             }
             y += 1;
@@ -251,9 +245,7 @@ impl Widget for &ConfirmBar<'_> {
         if let Some(hint) = self.words.hint
             && let Some(mut pen) = Pen::new(buf, area, area.x, y)
         {
-            pen.put(INDENT, muted);
-            let room = pen.room();
-            pen.clip(hint, muted, room);
+            pen.indented(hint, muted);
         }
     }
 }
