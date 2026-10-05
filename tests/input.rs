@@ -181,19 +181,77 @@ fn an_empty_input_shows_the_placeholder_under_the_caret() {
 }
 
 #[test]
-fn a_masked_key_shows_only_its_ends() {
-    let short = typed("abcdefgh").masked(true);
+fn a_masked_key_shows_nothing_unless_the_app_asks() {
     fn bar(input: &Input) -> InputBar<'_> {
         InputBar::new("Key", input).rule(false).styles(STYLES)
     }
-    assert_eq!(draw(bar(&short), 30, 1).text[0], "Key ••••••••");
-    let long = typed("sk-abcdefghij-wxyz").masked(true);
-    let drawn = draw(bar(&long), 30, 1);
+    let stored = Input::new().masked(true).with("sk-abcdefghij-wxyz");
+    assert_eq!(draw(bar(&stored), 30, 1).text[0], "Key ••••••••••••••••••");
+    let drawn = draw(bar(&stored).reveal_ends(4), 30, 1);
     assert_eq!(drawn.text[0], "Key sk-a••••••••••wxyz");
     assert_eq!(drawn.marks[0], "III iiiimmmmmmmmmmiiiiC");
-    assert_eq!(long.value(), "sk-abcdefghij-wxyz");
-    let stars = draw(bar(&long).mask("*"), 30, 1);
+    assert_eq!(stored.value(), "sk-abcdefghij-wxyz");
+    let stars = draw(bar(&stored).reveal_ends(4).mask("*"), 30, 1);
     assert_eq!(stars.text[0], "Key sk-a**********wxyz");
+}
+
+#[test]
+fn the_ends_show_only_when_the_revealed_share_is_small() {
+    fn row(value: &str, reveal: usize) -> String {
+        let input = Input::new().masked(true).with(value);
+        let bar = InputBar::new("", &input).rule(false).styles(STYLES);
+        draw(bar.reveal_ends(reveal), 40, 1).text[0].clone()
+    }
+    assert_eq!(row("abcdefgh", 4), "••••••••");
+    assert_eq!(row("abcdefghijkl", 4), "••••••••••••");
+    assert_eq!(row("abcdefghijklmno", 4), "•••••••••••••••");
+    assert_eq!(row("abcdefghijklmnop", 4), "abcd••••••••mnop");
+    assert_eq!(row("abcdefghij", 2), "ab••••••ij");
+    assert_eq!(row("abcdefgh", 2), "ab••••gh");
+    assert_eq!(row("abcdefg", 2), "•••••••");
+    assert_eq!(row("abcdefghijklmnop", 0), "••••••••••••••••");
+}
+
+#[test]
+fn typing_into_a_masked_input_never_shows_a_character() {
+    let secret = "s3cr3t-p4ssw0rd!-and-more";
+    let mut input = Input::new().masked(true);
+    for c in secret.chars() {
+        input.key(Key::Char(c));
+        for reveal in [0, 1, 4] {
+            let bar = InputBar::new("Key", &input).rule(false).styles(STYLES);
+            let row = draw(bar.reveal_ends(reveal), 60, 1).text[0].clone();
+            let shown = row.trim_start_matches("Key ").trim_end();
+            assert!(shown.chars().all(|c| c == '•'), "{reveal}: {row:?}");
+        }
+    }
+    assert!(input.edited());
+    assert_eq!(input.value(), secret);
+}
+
+#[test]
+fn a_stored_value_is_at_rest_until_the_user_edits_it() {
+    let mut input = Input::new().masked(true).with("abcdefghijklmnopqrstuvwx");
+    assert!(!input.edited());
+    let row = |input: &Input| {
+        let bar = InputBar::new("", input).rule(false).styles(STYLES);
+        draw(bar.reveal_ends(4), 40, 1).text[0].clone()
+    };
+    assert_eq!(row(&input), "abcd••••••••••••••••uvwx");
+    input.key(Key::Left);
+    input.key(Key::Home);
+    assert!(!input.edited());
+    assert_eq!(row(&input), "abcd••••••••••••••••uvwx");
+    input.key(Key::Char('!'));
+    assert!(input.edited());
+    assert_eq!(row(&input), "•••••••••••••••••••••••••");
+    input.set("abcdefghijklmnopqrstuvwx");
+    assert!(!input.edited());
+    assert_eq!(row(&input), "abcd••••••••••••••••uvwx");
+    input.key(Key::Ctrl('u'));
+    input.set("abcdefghijklmnopqrstuvwx");
+    input.clear();
+    assert!(!input.edited());
 }
 
 #[test]

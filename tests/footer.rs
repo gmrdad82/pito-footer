@@ -194,7 +194,63 @@ fn an_indent_wraps_in_the_inset_width() {
 fn a_long_notice_over_the_hints_wraps_in_their_place() {
     let text = "The import failed: the file could not be read because another program holds it";
     let footer = footer().notice(Some(Notice::alert(text).over()));
+    assert_eq!(footer.height(40), 4);
+    let drawn = draw(footer, 40, 4);
+    assert_eq!(
+        drawn.text[1..],
+        [
+            "The import failed: the file could not be",
+            "read because another program holds it",
+            "ctrl+c twice quit",
+        ],
+        "\n{}",
+        show(&drawn)
+    );
+    assert!(!footer.shown("enter", 40));
+    let drawn = draw(footer, 30, 4);
+    assert_eq!(
+        drawn.text[1..],
+        [
+            "The import failed: the file",
+            "could not be read because ano…",
+            "ctrl+c twice quit",
+        ],
+        "\n{}",
+        show(&drawn)
+    );
+    let short = footer.notice(Some(Notice::alert("Import failed").over()));
+    assert_eq!(
+        draw(short, 40, 3).text[1..],
+        ["↑↓ move · enter open · ctrl+c twice quit", "Import failed"]
+    );
+}
+
+#[test]
+fn a_pinned_hint_stays_under_an_over_notice() {
+    let text = "The import failed: the file could not be read because another program holds it";
+    let footer = footer().notice(Some(Notice::alert(text).over()));
+    for width in [30, 40] {
+        assert!(footer.shown("ctrl+c", width), "{width}");
+        assert!(!footer.shown("enter", width), "{width}");
+        assert!(!footer.shown("x", width), "{width}");
+        let rows = footer.height(width);
+        let drawn = draw(footer, width, rows);
+        assert_eq!(drawn.text.last().unwrap(), "ctrl+c twice quit", "{width}");
+        assert_eq!(drawn.marks.last().unwrap(), "AAAAAAmmmmmmmmmmm", "{width}");
+    }
+    assert!(!footer.open(false).notice(None).shown("enter", 40));
+    assert!(footer.open(false).shown("ctrl+c", 40));
+}
+
+#[test]
+fn an_over_notice_without_a_pinned_hint_still_takes_every_row() {
+    const PLAIN: [Hint; 2] = [Hint::new("↑↓", "move"), Hint::new("enter", "open")];
+    let text = "The import failed: the file could not be read because another program holds it";
+    let footer = Footer::new(&PLAIN)
+        .styles(STYLES)
+        .notice(Some(Notice::alert(text).over()));
     assert_eq!(footer.height(40), 3);
+    assert!(!footer.shown("enter", 40));
     let drawn = draw(footer, 40, 3);
     assert_eq!(
         drawn.text[1..],
@@ -204,22 +260,6 @@ fn a_long_notice_over_the_hints_wraps_in_their_place() {
         ],
         "\n{}",
         show(&drawn)
-    );
-    assert!(!footer.shown("enter", 40));
-    let drawn = draw(footer, 30, 3);
-    assert_eq!(
-        drawn.text[1..],
-        [
-            "The import failed: the file",
-            "could not be read because ano…"
-        ],
-        "\n{}",
-        show(&drawn)
-    );
-    let short = footer.notice(Some(Notice::alert("Import failed").over()));
-    assert_eq!(
-        draw(short, 40, 3).text[1..],
-        ["↑↓ move · enter open · ctrl+c twice quit", "Import failed"]
     );
 }
 

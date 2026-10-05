@@ -8,11 +8,15 @@ own: the app passes in every hint, every word, every key and every style, so
 any language works.
 
 ```toml
-pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.2.0" }
+pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.3.0" }
 ```
 
 Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
-(crossterm 0.29); without it the crate has no backend dependency.
+(crossterm 0.29); without it the crate has no backend dependency. The
+conversion keeps Alt apart (`Key::Alt('y')` is not `Key::Char('y')`, so Alt+y
+does not answer Yes), turns Alt, Super, Meta or Hyper on any other key into
+`Key::Other`, and passes Ctrl+Alt plus a character on as that character, which
+is how AltGr arrives on some platforms, so diacritics can still be typed.
 
 ## What it does
 
@@ -27,7 +31,9 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
   page instead just doesn't use `Help`.
 - **A notice line** under the hints for a legend, a result or a warning, in
   the app's ink, muted, accent, alert or good. A notice marked `over()` that's too
-  long for one row takes the hint rows' place and wraps across them.
+  long for one row takes the hint rows' place and wraps across them; the
+  pinned hints stay on the last row under it, `height(width)` counts that row,
+  and `shown(key, width)` still answers true for a pinned hint.
 - **A good tone** for success: `Tone::Good` and `Notice::good(text)` use
   `Styles::good`, and fall back to the ink style until the app sets one.
 - **An indent:** `indent(n)` insets the hints, the notice and the confirm by
@@ -35,6 +41,9 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
   inset width.
 - **Text keeps its own style:** the rules are rows of their own, so no hint,
   notice, confirm or segment ever picks up the rule's modifiers, such as DIM.
+- **Control characters take no cell:** a newline, tab or carriage return
+  inside a text is measured and drawn as one space between its two sides, and
+  one at either end is dropped, so a multi-line message reads as one line.
 - **Keys follow display:** `shown(key, width)` says whether a key's hint is
   on screen now, so an app can accept only the keys it shows.
 - **Footer segments with drop priority:** `Footer::status` lays out text
@@ -46,12 +55,14 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
   measures, drops and shrinks as one segment and clips with one ellipsis in
   the style of the span it cuts. `Segment::text(text, style)` still works.
 - **A confirm, in the bottom bar or a notice row.** `Confirm` holds the
-  choice (No unless the app starts it on Yes); `ConfirmKeys` sets the accept
-  and cancel keys (`HEY`: y/n, arrows, enter accepts, esc cancels; `ENTER`:
+  choice (No unless the app starts it on Yes); `ConfirmKeys` sets the yes and
+  no keys, the keys that switch the choice (`toggle`) and the keys that accept
+  it (`accept`) (`HEY`: y/n, arrows, tab, h/l and enter, esc cancels; `ENTER`:
   enter accepts, esc cancels). `ConfirmBar` draws "Question?  Yes   ▸ No"
   over a hint line, or inline on one row, in the app's words, and the footer
-  can carry it in place of the hints. It returns the answer and never runs
-  anything.
+  can carry it in place of the hints, keeping the bar's own styles if it has
+  any. When the width is short the question is clipped last: the choices go
+  before it does. It returns the answer and never runs anything.
 - **A one-line input.** `Input` holds the text and the cursor; the app
   feeds it keys and gets an `Edit` back: `Changed` when the text changed,
   `Held` for a key it used without a change (a move), `Submit(text)` on
@@ -60,17 +71,24 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
   Editing is by grapheme and cell: left/right, home/end and ctrl+a/ctrl+e,
   backspace and delete, ctrl+u (to the start) and ctrl+w (the word before the
   cursor), so diacritics, combining marks and wide glyphs move and delete
-  whole. `paste(text)` takes a bracketed paste and keeps it on one line.
+  whole. `paste(text)` takes a bracketed paste and keeps it on one line (a
+  newline, a carriage return or a pair of them each become one space).
+  `limit(chars)` caps the value's length: a paste or key past it is cut or
+  held, and `set` truncates.
 - **An input bar.** `InputBar` draws the app's label, then the text with a
   reversed caret cell, or the app's placeholder while empty, scrolling with
   "…" at either cut end to keep the caret in view; an optional rule above and
   hint line below, like the confirm. `cursor(area)` says where the caret is,
   for an app that shows the terminal's own cursor (`caret(false)` drops the
   drawn one). The footer can carry it in place of the hints.
-- **A masked input for keys:** `Input::masked(true)` draws only the first and
-  last four characters, the rest as `•` (or the app's `mask`), and all of a
-  value of eight or fewer. The value stays whole for `Submit`, and neither
-  `Input`'s nor `Edit`'s `Debug` prints it.
+- **A masked input for keys:** `Input::masked(true)` draws every character as
+  `•` (or the app's `mask`), and never reveals anything while the user types
+  or edits. A stored value shown at rest can opt in to its ends:
+  `InputBar::reveal_ends(n)` draws the first and last `n` characters of an
+  input that was set with `with` or `set` and not edited since
+  (`Input::edited()`), and only when it has at least four times `n` characters,
+  so the revealed share stays a quarter or less. The value stays whole for
+  `Submit`, and neither `Input`'s nor `Edit`'s `Debug` prints it.
 - **A quit guard with modes:** `Twice` (the first press arms and shows the
   app's "again" notice, a second inside the window quits, any other key
   disarms), `Ask` (the same, but while the app says work is running the
@@ -91,12 +109,13 @@ Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
 ## The API
 
 ```text
-pub enum Key { Char(char), Ctrl(char), Tab, BackTab, Enter, Esc, Backspace,
-               Left, Right, Up, Down, Home, End, Delete, Other }
-pub struct Styles { accent, muted, alert, ink, rule, good }   // all Style::new() by default
+pub enum Key { Char(char), Ctrl(char), Alt(char), Tab, BackTab, Enter, Esc, Backspace,
+               Left, Right, Up, Down, Home, End, Delete, Other }   // non_exhaustive
+pub struct Styles { accent, muted, alert, ink, rule, good }   // non_exhaustive; Styles::new().accent(..)
                                          // good: Option<Style>, ink until set
-pub enum Tone { Ink, Muted, Accent, Alert, Good }
-Hint::new(key, label).rank(u8).lead(text).pinned()
+pub enum Tone { Ink, Muted, Accent, Alert, Good }   // non_exhaustive
+Hint::new(key, label).rank(u8).lead(text).pinned()   // Hint, Notice, Segment, Part, Words,
+                                                      // Wording, Edit, Answer, Mode, Guard: non_exhaustive
 Notice::new(text, tone) | legend(text) | accent(text) | alert(text) | good(text); .over()
 Help::new(open).toggle_on(Key); open(), toggle(), wants(Key), key(Key) -> bool
 Segment::text(text, style) | spans(&[(text, Style)]) | hints(&[Hint]);
@@ -106,20 +125,26 @@ Footer::new(&[Hint]) | status(&[Segment])
   .separator(..).gap(u16).open(bool).help(&Help).rule(bool).wrap(bool)
   .indent(u16).styles(..)
   height(width), shown(key, width), cursor(area) -> Option<Position>
-ConfirmKeys { yes, no: &'static [Key], choose }; ConfirmKeys::HEY, ConfirmKeys::ENTER
+ConfirmKeys { yes, no, toggle, accept: &'static [Key], choose }   // non_exhaustive
+  ConfirmKeys::HEY, ConfirmKeys::ENTER; .yes(..) .no(..) .toggle(..) .accept(..) .choose(bool)
 Confirm::new().keys(..).start(Answer); yes(), choosing(), key(Key) -> Option<Answer>
 Words::new(yes, no).hint(text)
 ConfirmBar::new(question, &confirm, words).rule(bool).inline(bool).tone(Tone).styles(..)
 pub enum Edit { Pass, Held, Changed, Submit(String), Cancel }
-Input::new().masked(bool).with(text); value(), cursor(), is_empty(),
-  is_masked(), set(text), clear(), key(Key) -> Edit, paste(text) -> Edit
-InputBar::new(label, &input).placeholder(text).hint(text).mask(glyph)
+Input::new().masked(bool).limit(chars).with(text); value(), cursor(), is_empty(),
+  is_masked(), edited(), set(text), clear(), key(Key) -> Edit, paste(text) -> Edit
+InputBar::new(label, &input).placeholder(text).hint(text).mask(glyph).reveal_ends(n)
   .rule(bool).caret(bool).tone(Tone).styles(..); height(), cursor(area)
 Wording::new(again).ask(question)
 QuitGuard::new(wording).mode(Mode).window(Duration).triggers(&[Key]).confirm(Confirm)
   key(Key, now, busy) -> Guard { Pass, Held, Quit }
   tick(now) -> bool, deadline(), armed(), notice(), asking(), bar(words), cancel()
 ```
+
+Every public enum and options struct is `#[non_exhaustive]`: match enums with a
+wildcard arm, and build `Hint`, `Notice`, `Segment`, `Words`, `Wording`,
+`Styles` and `ConfirmKeys` with their constructors and methods, so a later
+release can add to them in a minor version.
 
 ## Example
 
@@ -144,7 +169,7 @@ fn key(guard: &mut QuitGuard, help: &mut Help, key: Key, busy: bool) -> bool {
     match guard.key(key, Instant::now(), busy) {
         Guard::Quit => true,
         Guard::Held => false,
-        Guard::Pass => {
+        _ => {
             help.key(key);
             false
         }
@@ -183,7 +208,7 @@ fn key(input: &mut Option<Input>, key: Key) -> Option<String> {
             *input = None;
             None
         }
-        Edit::Pass | Edit::Held | Edit::Changed => None,
+        _ => None,
     }
 }
 
@@ -208,8 +233,9 @@ A bracketed paste arrives as its own event, not a key: hand its text to
 
 `bin/gate` runs `cargo fmt --check`, `cargo clippy --all-targets
 --all-features -- -D warnings`, `cargo test --all-features` (the tests draw
-through ratatui's `TestBackend`, and this README's example compiles as a
-doctest) and builds the bench.
+through ratatui's `TestBackend`, a counting allocator holds that drawing
+allocates nothing, and this README's example compiles as a doctest) and
+builds the bench.
 
 ## Licence
 

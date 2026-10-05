@@ -70,11 +70,9 @@ fn hey_keys_answer() {
 
 #[test]
 fn accept_and_cancel_keys_are_the_apps() {
-    const ROMANIAN: ConfirmKeys = ConfirmKeys {
-        yes: &[Key::Char('d'), Key::Char('D')],
-        no: &[Key::Char('n'), Key::Char('N'), Key::Esc],
-        choose: true,
-    };
+    const ROMANIAN: ConfirmKeys = ConfirmKeys::HEY
+        .yes(&[Key::Char('d'), Key::Char('D')])
+        .no(&[Key::Char('n'), Key::Char('N'), Key::Esc]);
     let mut confirm = Confirm::new().keys(ROMANIAN);
     assert_eq!(confirm.key(Key::Char('y')), None);
     assert_eq!(confirm.key(Key::Char('d')), Some(Answer::Yes));
@@ -91,11 +89,11 @@ fn accept_and_cancel_keys_are_the_apps() {
 
 #[test]
 fn every_word_is_the_apps() {
-    let confirm = Confirm::new().keys(ConfirmKeys {
-        yes: &[Key::Char('d')],
-        no: &[Key::Char('n'), Key::Esc],
-        choose: true,
-    });
+    let confirm = Confirm::new().keys(
+        ConfirmKeys::HEY
+            .yes(&[Key::Char('d')])
+            .no(&[Key::Char('n'), Key::Esc]),
+    );
     let words = Words::new("Da", "Nu").hint("d/n alege · enter acceptă · esc renunță");
     let drawn = draw(
         ConfirmBar::new("Ștergi înregistrarea?", &confirm, words),

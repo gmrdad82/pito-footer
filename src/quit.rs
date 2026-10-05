@@ -7,6 +7,7 @@ use crate::key::Key;
 pub const WINDOW: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Wording {
     pub again: Cow<'static, str>,
     pub ask: Cow<'static, str>,
@@ -27,6 +28,7 @@ impl Wording {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Mode {
     #[default]
     Twice,
@@ -35,6 +37,7 @@ pub enum Mode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Guard {
     Pass,
     Held,
@@ -143,7 +146,7 @@ impl QuitGuard {
     }
 
     pub fn deadline(&self) -> Option<Instant> {
-        self.armed.map(|at| at + self.window)
+        self.armed.and_then(|at| at.checked_add(self.window))
     }
 
     pub fn armed(&self) -> bool {

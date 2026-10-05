@@ -14,16 +14,20 @@ const BEFORE: u16 = 2;
 const BETWEEN: u16 = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Answer {
     Yes,
     No,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ConfirmKeys {
     pub yes: &'static [Key],
     pub no: &'static [Key],
     pub choose: bool,
+    pub toggle: &'static [Key],
+    pub accept: &'static [Key],
 }
 
 impl ConfirmKeys {
@@ -31,13 +35,49 @@ impl ConfirmKeys {
         yes: &[Key::Char('y'), Key::Char('Y')],
         no: &[Key::Char('n'), Key::Char('N'), Key::Esc],
         choose: true,
+        toggle: &[
+            Key::Left,
+            Key::Right,
+            Key::Tab,
+            Key::BackTab,
+            Key::Char('h'),
+            Key::Char('l'),
+        ],
+        accept: &[Key::Enter],
     };
 
     pub const ENTER: ConfirmKeys = ConfirmKeys {
         yes: &[Key::Enter],
         no: &[Key::Esc],
         choose: false,
+        toggle: &[],
+        accept: &[],
     };
+
+    pub const fn yes(mut self, keys: &'static [Key]) -> Self {
+        self.yes = keys;
+        self
+    }
+
+    pub const fn no(mut self, keys: &'static [Key]) -> Self {
+        self.no = keys;
+        self
+    }
+
+    pub const fn choose(mut self, choose: bool) -> Self {
+        self.choose = choose;
+        self
+    }
+
+    pub const fn toggle(mut self, keys: &'static [Key]) -> Self {
+        self.toggle = keys;
+        self
+    }
+
+    pub const fn accept(mut self, keys: &'static [Key]) -> Self {
+        self.accept = keys;
+        self
+    }
 }
 
 impl Default for ConfirmKeys {
@@ -94,19 +134,18 @@ impl Confirm {
         if !self.keys.choose {
             return None;
         }
-        match key {
-            Key::Enter if self.yes => Some(Answer::Yes),
-            Key::Enter => Some(Answer::No),
-            Key::Left | Key::Right | Key::Tab | Key::BackTab | Key::Char('h' | 'l') => {
-                self.yes = !self.yes;
-                None
-            }
-            _ => None,
+        if self.keys.accept.contains(&key) {
+            return Some(if self.yes { Answer::Yes } else { Answer::No });
         }
+        if self.keys.toggle.contains(&key) {
+            self.yes = !self.yes;
+        }
+        None
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Words<'a> {
     pub yes: &'a str,
     pub no: &'a str,
@@ -136,7 +175,7 @@ pub struct ConfirmBar<'a> {
     rule: bool,
     inline: bool,
     tone: Tone,
-    styles: Styles,
+    styles: Option<Styles>,
 }
 
 impl<'a> ConfirmBar<'a> {
@@ -148,7 +187,7 @@ impl<'a> ConfirmBar<'a> {
             rule: true,
             inline: false,
             tone: Tone::Ink,
-            styles: Styles::new(),
+            styles: None,
         }
     }
 
@@ -168,8 +207,17 @@ impl<'a> ConfirmBar<'a> {
     }
 
     pub fn styles(mut self, styles: Styles) -> Self {
-        self.styles = styles;
+        self.styles = Some(styles);
         self
+    }
+
+    pub(crate) fn styled(mut self, fallback: Styles) -> Self {
+        self.styles = Some(self.styles.unwrap_or(fallback));
+        self
+    }
+
+    fn look(&self) -> Styles {
+        self.styles.unwrap_or_default()
     }
 
     pub fn height(&self) -> u16 {
@@ -182,14 +230,14 @@ impl<'a> ConfirmBar<'a> {
             return 0;
         }
         BEFORE
-            + text::width(MARK)
-            + text::width(self.words.yes)
-            + BETWEEN
-            + text::width(self.words.no)
+            .saturating_add(text::width(MARK))
+            .saturating_add(text::width(self.words.yes))
+            .saturating_add(BETWEEN)
+            .saturating_add(text::width(self.words.no))
     }
 
     fn question_style(&self) -> Style {
-        self.tone.style(&self.styles).add_modifier(Modifier::BOLD)
+        self.tone.style(&self.look()).add_modifier(Modifier::BOLD)
     }
 
     fn draw_choices(&self, pen: &mut Pen) {
@@ -197,8 +245,9 @@ impl<'a> ConfirmBar<'a> {
             return;
         }
         pen.skip(BEFORE);
-        let lit = self.styles.lit();
-        let muted = self.styles.muted;
+        let styles = self.look();
+        let lit = styles.lit();
+        let muted = styles.muted;
         if self.confirm.yes {
             pen.put(MARK, lit);
             pen.put(self.words.yes, lit);
@@ -225,15 +274,22 @@ impl Widget for &ConfirmBar<'_> {
             return;
         }
         let mut y = area.y;
+        let styles = self.look();
         if self.rule {
-            text::rule(buf, area, self.styles.rule);
+            text::rule(buf, area, styles.rule);
             y += 1;
         }
-        let muted = self.styles.muted;
+        let muted = styles.muted;
         if let Some(mut pen) = Pen::new(buf, area, area.x, y) {
-            let room = area.width.saturating_sub(self.choices_width());
-            pen.clip(self.question, self.question_style(), room);
-            self.draw_choices(&mut pen);
+            let choices = self.choices_width();
+            let room = area.width.saturating_sub(choices);
+            let least = text::width(self.question).min(area.width / 2).max(1);
+            if room >= least {
+                pen.clip(self.question, self.question_style(), room);
+                self.draw_choices(&mut pen);
+            } else {
+                pen.clip(self.question, self.question_style(), area.width);
+            }
             if self.inline
                 && let Some(hint) = self.words.hint
             {

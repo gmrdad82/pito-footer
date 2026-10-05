@@ -1,7 +1,9 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Key {
     Char(char),
     Ctrl(char),
+    Alt(char),
     Tab,
     BackTab,
     Enter,
@@ -24,10 +26,18 @@ impl From<crossterm::event::KeyEvent> for Key {
         if event.kind == KeyEventKind::Release {
             return Key::Other;
         }
-        let control = event.modifiers.contains(KeyModifiers::CONTROL);
+        let modifiers = event.modifiers;
+        let control = modifiers.contains(KeyModifiers::CONTROL);
+        let alt = modifiers.contains(KeyModifiers::ALT);
+        let other =
+            modifiers.intersects(KeyModifiers::SUPER | KeyModifiers::HYPER | KeyModifiers::META);
         match event.code {
+            KeyCode::Char(_) if other => Key::Other,
+            KeyCode::Char(c) if control && alt => Key::Char(c),
             KeyCode::Char(c) if control => Key::Ctrl(c.to_ascii_lowercase()),
+            KeyCode::Char(c) if alt => Key::Alt(c),
             KeyCode::Char(c) => Key::Char(c),
+            _ if other || alt => Key::Other,
             KeyCode::Tab if event.modifiers.contains(KeyModifiers::SHIFT) => Key::BackTab,
             KeyCode::Tab => Key::Tab,
             KeyCode::BackTab => Key::BackTab,

@@ -1,6 +1,7 @@
 use ratatui::style::{Modifier, Style};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Styles {
     pub accent: Style,
     pub muted: Style,
@@ -58,6 +59,7 @@ impl Styles {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Tone {
     Ink,
     #[default]

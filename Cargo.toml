@@ -1,9 +1,8 @@
 [package]
 name = "pito-footer"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Gamer Dad"]
 edition = "2024"
-rust-version = "1.97"
 description = "A shortcut footer for ratatui apps: key hints that fit the width, a notice line, a y/n confirm bar, a one-line input and a double ctrl+c quit guard"
 license = "MIT"
 repository = "https://github.com/gmrdad82/pito-footer"

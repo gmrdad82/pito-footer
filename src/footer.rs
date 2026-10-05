@@ -15,6 +15,7 @@ const SEPARATOR: &str = " · ";
 const MOST: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Hint<'a> {
     pub key: &'a str,
     pub label: &'a str,
@@ -80,6 +81,7 @@ impl<'a> Hint<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Notice<'a> {
     pub text: &'a str,
     pub tone: Tone,
@@ -164,6 +166,7 @@ impl Help {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Part<'a> {
     Text(&'a str, Style),
     Spans(&'a [(&'a str, Style)]),
@@ -171,6 +174,7 @@ pub enum Part<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Segment<'a> {
     pub part: Part<'a>,
     pub rank: u8,
@@ -340,7 +344,9 @@ impl<'a> Footer<'a> {
         if let Some(input) = self.input {
             return input.rule(false).height() + u16::from(self.rule);
         }
-        let lines = self.line_count(self.inner(width)) + u16::from(self.notice.is_some());
+        let inner = self.inner(width);
+        let lines =
+            self.line_count(inner) + u16::from(self.notice.is_some()) + self.pinned_lines(inner);
         if lines == 0 {
             0
         } else {
@@ -350,11 +356,13 @@ impl<'a> Footer<'a> {
 
     pub fn shown(&self, key: &str, width: u16) -> bool {
         let width = self.inner(width);
-        if self.confirm.is_some()
-            || self.input.is_some()
-            || self.takes_over(width)
-            || self.line_count(width) == 0
-        {
+        if self.confirm.is_some() || self.input.is_some() {
+            return false;
+        }
+        if self.takes_over(width) {
+            return self.pinned_lines(width) > 0 && self.pinned().shown(key, width);
+        }
+        if self.line_count(width) == 0 {
             return false;
         }
         if self.wrapping() {
@@ -444,6 +452,30 @@ impl<'a> Footer<'a> {
         let mut lines = 0;
         self.flow(width, |_, line, _| lines = line + 1);
         lines
+    }
+
+    fn pinned(&self) -> Footer<'a> {
+        Footer {
+            open: false,
+            notice: None,
+            rule: false,
+            indent: 0,
+            ..*self
+        }
+    }
+
+    fn has_pinned(&self) -> bool {
+        (0..self.count()).any(|index| match self.segment(index).part {
+            Part::Hints(hints) => hints.iter().any(|hint| hint.pinned),
+            Part::Text(..) | Part::Spans(..) => false,
+        })
+    }
+
+    fn pinned_lines(&self, width: u16) -> u16 {
+        if !self.takes_over(width) || !self.has_pinned() {
+            return 0;
+        }
+        self.pinned().line_count(width)
     }
 
     fn takes_over(&self, width: u16) -> bool {
@@ -682,17 +714,36 @@ impl Widget for &Footer<'_> {
         };
         let rest = |y: u16| Rect::new(area.x, y, area.width, area.bottom().saturating_sub(y));
         if let Some(confirm) = self.confirm {
-            confirm.rule(false).styles(self.styles).render(body, buf);
+            confirm.rule(false).styled(self.styles).render(body, buf);
             return;
         }
         if let Some(input) = self.input {
-            input.rule(false).styles(self.styles).render(body, buf);
+            input.rule(false).styled(self.styles).render(body, buf);
             return;
         }
         if self.takes_over(area.width)
             && let Some(notice) = self.notice
         {
-            text::flow(buf, rest(y), notice.text, notice.tone.style(&self.styles));
+            let all = rest(y);
+            let pinned = self.pinned_lines(area.width);
+            let kept = if pinned > 0 && all.height > pinned {
+                pinned
+            } else {
+                0
+            };
+            let flowing = Rect {
+                height: all.height - kept,
+                ..all
+            };
+            text::flow(buf, flowing, notice.text, notice.tone.style(&self.styles));
+            if kept > 0 {
+                let low = Rect {
+                    y: all.bottom() - kept,
+                    height: kept,
+                    ..all
+                };
+                self.pinned().styles(self.styles).render(low, buf);
+            }
             return;
         }
         if self.line_count(area.width) > 0 && y < area.bottom() {

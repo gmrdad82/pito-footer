@@ -6,8 +6,30 @@ pub(crate) const ELLIPSIS: &str = "…";
 pub(crate) const RULE: &str = "─";
 pub(crate) const INDENT: &str = "  ";
 
-pub(crate) fn width(text: &str) -> u16 {
+fn plain(text: &str) -> bool {
+    !text.contains(char::is_control)
+}
+
+fn pieces(text: &str) -> impl Iterator<Item = &str> {
+    text.split(char::is_control)
+        .filter(|piece| !piece.is_empty())
+}
+
+fn cells(text: &str) -> u16 {
     u16::try_from(text.width()).unwrap_or(u16::MAX)
+}
+
+pub(crate) fn width(text: &str) -> u16 {
+    if plain(text) {
+        return cells(text);
+    }
+    pieces(text)
+        .enumerate()
+        .fold(0u16, |total, (index, piece)| {
+            total
+                .saturating_add(u16::from(index > 0))
+                .saturating_add(cells(piece))
+        })
 }
 
 pub(crate) fn spans_width(spans: &[(&str, Style)]) -> u16 {
@@ -37,7 +59,7 @@ pub(crate) fn flow(buf: &mut Buffer, area: Rect, text: &str, style: Style) {
             return;
         }
         let mut cut = 0;
-        for (at, _) in rest.match_indices(' ') {
+        for (at, _) in rest.match_indices(|c: char| c == ' ' || c.is_control()) {
             if width(&rest[..at]) > room {
                 break;
             }
@@ -87,8 +109,32 @@ impl<'a> Pen<'a> {
     }
 
     pub(crate) fn put(&mut self, text: &str, style: Style) {
-        let room = self.room();
+        self.putn(text, style, self.room());
+    }
+
+    fn putn(&mut self, text: &str, style: Style, room: u16) {
+        let room = room.min(self.room());
         if room == 0 || text.is_empty() {
+            return;
+        }
+        if plain(text) {
+            return self.draw(text, style, room);
+        }
+        let stop = self.x + room;
+        for (index, piece) in pieces(text).enumerate() {
+            if index > 0 {
+                self.draw(" ", style, stop - self.x);
+            }
+            let start = self.x;
+            self.draw(piece, style, stop - self.x);
+            if self.x - start < cells(piece) {
+                break;
+            }
+        }
+    }
+
+    fn draw(&mut self, text: &str, style: Style, room: u16) {
+        if room == 0 {
             return;
         }
         let (end, _) = self
@@ -137,10 +183,8 @@ impl<'a> Pen<'a> {
             return;
         }
         let stop = self.x + room - 1;
-        let (end, _) = self
-            .buf
-            .set_stringn(self.x, self.y, text, usize::from(room - 1), style);
-        self.x = end.min(stop);
+        self.putn(text, style, room - 1);
+        self.x = self.x.min(stop);
         self.put(ELLIPSIS, style);
     }
 
@@ -149,7 +193,7 @@ impl<'a> Pen<'a> {
             self.buf[(self.x, self.y)]
                 .set_symbol(symbol)
                 .set_style(style);
-            self.x += 1;
+            self.x = self.x.saturating_add(1);
         }
     }
 

@@ -13,11 +13,12 @@ use crate::styles::{Styles, Tone};
 use crate::text::{self, ELLIPSIS, Pen};
 
 const MASK: &str = "•";
-const SHOWN: usize = 4;
+const SHARE: usize = 4;
 const GAP: u16 = 1;
 const CARET: &str = " ";
 
 #[derive(Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Edit {
     Pass,
     Held,
@@ -38,11 +39,25 @@ impl fmt::Debug for Edit {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Input {
     value: String,
     cursor: usize,
     masked: bool,
+    edited: bool,
+    limit: usize,
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Input {
+            value: String::new(),
+            cursor: 0,
+            masked: false,
+            edited: false,
+            limit: usize::MAX,
+        }
+    }
 }
 
 impl fmt::Debug for Input {
@@ -69,9 +84,24 @@ impl Input {
         self
     }
 
+    pub fn limit(mut self, chars: usize) -> Self {
+        self.limit = chars;
+        let kept = self.value.char_indices().nth(chars).map(|(at, _)| at);
+        if let Some(at) = kept {
+            self.value.truncate(at);
+            self.cursor = self.cursor.min(at);
+            self.snap();
+        }
+        self
+    }
+
     pub fn with(mut self, value: &str) -> Self {
         self.set(value);
         self
+    }
+
+    pub fn edited(&self) -> bool {
+        self.edited
     }
 
     pub fn value(&self) -> &str {
@@ -95,12 +125,17 @@ impl Input {
 
     pub fn set(&mut self, value: &str) {
         self.value = clean(value);
+        if let Some((at, _)) = self.value.char_indices().nth(self.limit) {
+            self.value.truncate(at);
+        }
         self.cursor = self.value.len();
+        self.edited = false;
     }
 
     pub fn clear(&mut self) {
         self.value.clear();
         self.cursor = 0;
+        self.edited = false;
     }
 
     pub fn key(&mut self, key: Key) -> Edit {
@@ -136,16 +171,23 @@ impl Input {
         self.value.replace_range(from..to, "");
         self.cursor = from;
         self.snap();
+        self.edited = true;
         Edit::Changed
     }
 
     fn insert(&mut self, text: &str) -> Edit {
+        let room = self.limit.saturating_sub(self.value.chars().count());
+        let text = match text.char_indices().nth(room) {
+            Some((at, _)) => &text[..at],
+            None => text,
+        };
         if text.is_empty() {
             return Edit::Held;
         }
         self.value.insert_str(self.cursor, text);
         self.cursor += text.len();
         self.snap();
+        self.edited = true;
         Edit::Changed
     }
 
@@ -194,30 +236,65 @@ impl Input {
         at
     }
 
-    fn units<'a>(&'a self, mask: &'a str) -> impl Iterator<Item = (&'a str, bool)> + Clone {
-        let count = if self.masked {
-            self.value.graphemes(true).count()
-        } else {
-            0
-        };
-        let open = count > SHOWN * 2;
+    fn units<'a>(
+        &'a self,
+        mask: &'a str,
+        shape: Shape,
+    ) -> impl Iterator<Item = (&'a str, bool)> + Clone {
         self.value
             .graphemes(true)
             .enumerate()
-            .map(move |(index, grapheme)| {
-                let hidden = self.masked && !(open && (index < SHOWN || index >= count - SHOWN));
-                if hidden {
-                    (mask, true)
-                } else {
-                    (grapheme, false)
-                }
+            .map(move |(index, grapheme)| shape.unit(index, grapheme, mask))
+    }
+
+    fn units_back<'a>(
+        &'a self,
+        mask: &'a str,
+        shape: Shape,
+    ) -> impl Iterator<Item = (usize, &'a str)> {
+        self.value
+            .graphemes(true)
+            .rev()
+            .scan(shape.count, move |index, grapheme| {
+                *index -= 1;
+                Some((*index, shape.unit(*index, grapheme, mask).0))
             })
+    }
+
+    fn shape(&self, reveal: usize) -> Shape {
+        let count = self.value.graphemes(true).count();
+        let open =
+            self.masked && !self.edited && reveal > 0 && count >= reveal.saturating_mul(SHARE);
+        Shape {
+            count,
+            masked: self.masked,
+            reveal: if open { reveal } else { 0 },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Shape {
+    count: usize,
+    masked: bool,
+    reveal: usize,
+}
+
+impl Shape {
+    fn unit<'a>(&self, index: usize, grapheme: &'a str, mask: &'a str) -> (&'a str, bool) {
+        let shown = !self.masked
+            || (self.reveal > 0 && (index < self.reveal || index >= self.count - self.reveal));
+        if shown {
+            (grapheme, false)
+        } else {
+            (mask, true)
+        }
     }
 }
 
 fn clean(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
-    for line in text.lines().filter(|line| !line.is_empty()) {
+    for line in text.split(['\n', '\r']).filter(|line| !line.is_empty()) {
         if !out.is_empty() {
             out.push(' ');
         }
@@ -241,8 +318,9 @@ pub struct InputBar<'a> {
     mask: &'a str,
     rule: bool,
     caret: bool,
+    reveal: usize,
     tone: Tone,
-    styles: Styles,
+    styles: Option<Styles>,
 }
 
 struct Field {
@@ -252,6 +330,7 @@ struct Field {
     stop: usize,
     count: usize,
     cursor: usize,
+    shape: Shape,
 }
 
 impl<'a> InputBar<'a> {
@@ -264,8 +343,9 @@ impl<'a> InputBar<'a> {
             mask: MASK,
             rule: true,
             caret: true,
+            reveal: 0,
             tone: Tone::Ink,
-            styles: Styles::new(),
+            styles: None,
         }
     }
 
@@ -294,14 +374,28 @@ impl<'a> InputBar<'a> {
         self
     }
 
+    pub fn reveal_ends(mut self, chars: usize) -> Self {
+        self.reveal = chars;
+        self
+    }
+
     pub fn tone(mut self, tone: Tone) -> Self {
         self.tone = tone;
         self
     }
 
     pub fn styles(mut self, styles: Styles) -> Self {
-        self.styles = styles;
+        self.styles = Some(styles);
         self
+    }
+
+    pub(crate) fn styled(mut self, fallback: Styles) -> Self {
+        self.styles = Some(self.styles.unwrap_or(fallback));
+        self
+    }
+
+    fn look(&self) -> Styles {
+        self.styles.unwrap_or_default()
     }
 
     pub fn height(&self) -> u16 {
@@ -310,9 +404,11 @@ impl<'a> InputBar<'a> {
 
     pub fn cursor(&self, area: Rect) -> Option<Position> {
         let field = self.field(area)?;
-        let x = field.x
-            + u16::from(field.start > 0)
-            + self.span(field.start, field.cursor.max(field.start));
+        let before = self.span(&field, field.start, field.cursor.max(field.start));
+        let x = field
+            .x
+            .saturating_add(u16::from(field.start > 0))
+            .saturating_add(before);
         (x < field.line.right()).then_some(Position::new(x, field.line.y))
     }
 
@@ -320,17 +416,14 @@ impl<'a> InputBar<'a> {
         text::width(self.label).min(width.saturating_sub(GAP) / 2)
     }
 
-    fn widths(&self) -> impl Iterator<Item = u16> + Clone {
+    fn span(&self, field: &Field, from: usize, to: usize) -> u16 {
         self.input
-            .units(self.mask)
-            .map(|(unit, _)| text::width(unit))
-    }
-
-    fn span(&self, from: usize, to: usize) -> u16 {
-        self.widths()
+            .units(self.mask, field.shape)
             .skip(from)
             .take(to.saturating_sub(from))
-            .fold(0u16, u16::saturating_add)
+            .fold(0u16, |total, (unit, _)| {
+                total.saturating_add(text::width(unit))
+            })
     }
 
     fn field(&self, area: Rect) -> Option<Field> {
@@ -346,49 +439,72 @@ impl<'a> InputBar<'a> {
             line.x
         };
         let room = line.right().saturating_sub(x);
-        let count = self.widths().count();
+        let shape = self.input.shape(self.reveal);
+        let count = shape.count;
         let cursor = self.input.cursor();
-        let caret = self.widths().nth(cursor).unwrap_or(1);
-        if self.span(0, count) + u16::from(cursor == count) <= room {
-            return Some(Field {
-                line,
-                x,
-                start: 0,
-                stop: count,
-                count,
-                cursor,
-            });
-        }
-        let tail = u16::from(cursor + 1 < count);
-        let mut start = 0;
-        while start < cursor
-            && u16::from(start > 0) + self.span(start, cursor) + caret + tail > room
-        {
-            start += 1;
-        }
-        let lead = u16::from(start > 0);
-        let mut stop = (cursor + 1).min(count);
-        while stop < count
-            && lead + self.span(start, stop + 1) + u16::from(stop + 1 < count) <= room
-        {
-            stop += 1;
-        }
-        Some(Field {
+        let mut field = Field {
             line,
             x,
-            start,
-            stop,
+            start: 0,
+            stop: count,
             count,
             cursor,
-        })
+            shape,
+        };
+        let mut total = 0u16;
+        let mut caret = 1;
+        for (index, (unit, _)) in self.input.units(self.mask, shape).enumerate() {
+            let wide = text::width(unit);
+            total = total.saturating_add(wide);
+            if index == cursor {
+                caret = wide;
+            }
+        }
+        if total.saturating_add(u16::from(cursor == count)) <= room {
+            return Some(field);
+        }
+        let tail = u16::from(cursor + 1 < count);
+        let need = caret.saturating_add(tail);
+        let mut behind = 0u16;
+        let mut start = cursor;
+        for (index, unit) in self
+            .input
+            .units_back(self.mask, shape)
+            .skip(count - cursor.min(count))
+        {
+            behind = behind.saturating_add(text::width(unit));
+            if behind.saturating_add(need) > room {
+                break;
+            }
+            let lead = u16::from(index > 0);
+            if behind.saturating_add(need).saturating_add(lead) <= room {
+                start = index;
+            }
+        }
+        let lead = u16::from(start > 0);
+        let mut used = self.span(&field, start, (cursor + 1).min(count));
+        let mut stop = (cursor + 1).min(count);
+        for (unit, _) in self.input.units(self.mask, shape).skip(stop) {
+            let next = used.saturating_add(text::width(unit));
+            let more = u16::from(stop + 1 < count);
+            if lead.saturating_add(next).saturating_add(more) > room {
+                break;
+            }
+            used = next;
+            stop += 1;
+        }
+        field.start = start;
+        field.stop = stop;
+        Some(field)
     }
 
     fn draw_field(&self, buf: &mut Buffer, field: &Field) {
         let Some(mut pen) = Pen::new(buf, field.line, field.x, field.line.y) else {
             return;
         };
-        let ink = self.styles.ink;
-        let muted = self.styles.muted;
+        let styles = self.look();
+        let ink = styles.ink;
+        let muted = styles.muted;
         let caret = |style: Style| {
             if self.caret {
                 style.add_modifier(Modifier::REVERSED)
@@ -412,7 +528,7 @@ impl<'a> InputBar<'a> {
         }
         for (index, (unit, hidden)) in self
             .input
-            .units(self.mask)
+            .units(self.mask, field.shape)
             .enumerate()
             .skip(field.start)
             .take(field.stop - field.start)
@@ -443,21 +559,22 @@ impl Widget for &InputBar<'_> {
         if area.is_empty() {
             return;
         }
+        let styles = self.look();
         if self.rule {
-            text::rule(buf, area, self.styles.rule);
+            text::rule(buf, area, styles.rule);
         }
         let Some(field) = self.field(area) else {
             return;
         };
         if let Some(mut pen) = Pen::new(buf, field.line, field.line.x, field.line.y) {
-            let style = self.tone.style(&self.styles).add_modifier(Modifier::BOLD);
+            let style = self.tone.style(&styles).add_modifier(Modifier::BOLD);
             pen.clip(self.label, style, self.label_width(field.line.width));
         }
         self.draw_field(buf, &field);
         if let Some(hint) = self.hint
             && let Some(mut pen) = Pen::new(buf, area, area.x, field.line.y.saturating_add(1))
         {
-            pen.indented(hint, self.styles.muted);
+            pen.indented(hint, styles.muted);
         }
     }
 }
