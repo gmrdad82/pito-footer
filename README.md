@@ -235,7 +235,7 @@ A bracketed paste arrives as its own event, not a key: hand its text to
 --all-features -- -D warnings`, `cargo test --all-features` (the tests draw
 through ratatui's `TestBackend`, a counting allocator holds that drawing
 allocates nothing, and this README's example compiles as a doctest) and
-builds the bench.
+builds the bench. `bin/gate --fast` leaves the bench build out.
 
 ## Licence
 
