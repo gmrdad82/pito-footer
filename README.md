@@ -260,7 +260,8 @@ it on every push and pull request to main. Each release is listed in
 Issues and pull requests are welcome. Please read the
 [code of conduct](CODE_OF_CONDUCT.md) first. A change keeps `bin/gate` green
 with no warnings, draws without allocating, and leaves every word, style and
-key to the app.
+key to the app. Report a security issue privately, as
+[SECURITY.md](SECURITY.md) says, not in a public issue.
 
 ## Licence
 
