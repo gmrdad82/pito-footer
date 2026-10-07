@@ -6,6 +6,7 @@ edition = "2024"
 description = "A shortcut footer for ratatui apps: key hints that fit the width, a notice line, a y/n confirm bar, a one-line input and a double ctrl+c quit guard"
 license = "MIT"
 repository = "https://github.com/gmrdad82/pito-footer"
+homepage = "https://pitomd.com"
 publish = false
 
 [lib]
@@ -19,3 +20,10 @@ crossterm = { version = "0.29", default-features = false, features = ["events"],
 ratatui = { version = "0.30", default-features = false }
 unicode-segmentation = "1"
 unicode-width = "0.2"
+
+[dev-dependencies]
+ratatui = { version = "0.30", default-features = false, features = ["crossterm_0_29"] }
+
+[[example]]
+name = "demo"
+required-features = ["crossterm"]

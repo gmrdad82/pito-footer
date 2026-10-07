@@ -2,12 +2,13 @@
 
 [![CI](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml/badge.svg)](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml)
 
-The bottom of a pito terminal app, as a small ratatui 0.30 crate: key hints
-that fit the width, a notice line, a y/n confirm, a one-line input, and a
-quit guard. The look
-is in the style of HEY's terminal UI. It has no app logic and no words of its
-own: the app passes in every hint, every word, every key and every style, so
-any language works.
+![The demo example: a task list whose footer shows its key hints and version, a notice, a search input, a delete confirm, the hints hidden by ? and the ctrl+c guard](docs/demo.gif)
+
+The bottom of a [PITO](https://pitomd.com) terminal app, as a small ratatui
+0.30 crate: key hints that fit the width, a notice line, a y/n confirm, a
+one-line input, and a quit guard. The look is in the style of HEY's terminal
+UI. It has no app logic and no words of its own: the app passes in every hint,
+every word, every key and every style, so any language works.
 
 ```toml
 pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.4.0" }
@@ -163,6 +164,17 @@ release can add to them in a minor version.
 
 ## Example
 
+The clip above is `examples/demo.rs`, a task list with the footer at its
+bottom. Run it in a terminal with
+
+```sh
+cargo run --example demo --features crossterm
+```
+
+then move with ↑↓, mark a task done with enter, search with `/`, delete with
+`d`, hide the hints with `?`, and press ctrl+c twice to quit. The core of an
+app's footer looks like this:
+
 ```rust,standalone_crate
 use std::time::Instant;
 use pito_footer::{Footer, Guard, Help, Hint, Key, Mode, Notice, QuitGuard, Styles, Words, Wording};
@@ -251,7 +263,8 @@ A bracketed paste arrives as its own event, not a key: hand its text to
 --all-features -- -D warnings`, `cargo test --all-features` (the tests draw
 through ratatui's `TestBackend`, a counting allocator holds that drawing
 allocates nothing, and this README's example compiles as a doctest) and
-builds the bench. `bin/gate --fast` leaves the bench build out, and CI runs
+builds the bench; clippy checks the demo example too.
+`bin/gate --fast` leaves the bench build out, and CI runs
 it on every push and pull request to main. Each release is listed in
 [CHANGELOG.md](CHANGELOG.md).
 
