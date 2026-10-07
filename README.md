@@ -10,6 +10,10 @@ one-line input, and a quit guard. The look is in the style of HEY's terminal
 UI. It has no app logic and no words of its own: the app passes in every hint,
 every word, every key and every style, so any language works.
 
+## Install
+
+Add it to the app's `Cargo.toml`:
+
 ```toml
 pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.4.0" }
 ```
@@ -280,5 +284,5 @@ key to the app. Report a security issue privately, as
 
 The code is MIT licensed: see [LICENSE](LICENSE). The PITO name and its logos
 are © Catalin Ilinca, all rights reserved, and are not covered by the MIT
-licence. The look is in the style of HEY's terminal UI; see
-[NOTICE.md](NOTICE.md).
+licence; see [TRADEMARKS.md](TRADEMARKS.md). The look is in the style of HEY's
+terminal UI; see [NOTICE.md](NOTICE.md).

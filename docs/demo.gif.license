@@ -1,0 +1,7 @@
+SPDX-FileCopyrightText: 2026 Cătălin Ilinca
+SPDX-License-Identifier: MIT
+
+docs/demo.gif is a capture of this crate's own example, examples/demo.rs.
+It is © 2026 Cătălin Ilinca and is under the MIT licence like the code (see
+LICENSE at the root of the repository). The names and logos in it are not
+covered by that licence; they are as TRADEMARKS.md says.
