@@ -91,7 +91,7 @@ fn drawing_allocates_nothing() {
     let counted = allocations(|| {
         let over =
             "The import failed: the file could not be read\nbecause another program holds it";
-        for wrap in [false, true] {
+        for (wrap, open) in [(false, true), (true, true), (false, false), (true, false)] {
             let notices = [
                 None,
                 Some(Notice::alert("Import failed")),
@@ -101,9 +101,14 @@ fn drawing_allocates_nothing() {
                 let footer = Footer::new(&hints)
                     .styles(styles)
                     .wrap(wrap)
+                    .open(open)
                     .indent(2)
-                    .notice(notice);
-                let status = Footer::status(&segments).styles(styles).notice(notice);
+                    .notice(notice)
+                    .version("app", "0.4.0");
+                let status = Footer::status(&segments)
+                    .styles(styles)
+                    .notice(notice)
+                    .version("app", "0.4.0");
                 let bars = [
                     Footer::new(&hints)
                         .styles(styles)
@@ -118,7 +123,8 @@ fn drawing_allocates_nothing() {
                     )),
                     Footer::new(&hints)
                         .styles(styles)
-                        .input(Some(InputBar::new("Key", &short).placeholder("type"))),
+                        .input(Some(InputBar::new("Key", &short).placeholder("type")))
+                        .version("app", "0.4.0"),
                 ];
                 for buffer in &mut buffers {
                     let area = buffer.area;

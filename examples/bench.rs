@@ -75,6 +75,7 @@ fn main() {
         let started = Instant::now();
         let footer = Footer::new(&HINTS)
             .styles(styles)
+            .version("bench", env!("CARGO_PKG_VERSION"))
             .notice(Some(Notice::legend(
                 "✓ done · ✗ failed · ■ stopped · ⧗ running",
             )));
@@ -82,8 +83,12 @@ fn main() {
         footer.render(Rect::new(0, HEIGHT - height, WIDTH, height), &mut buffer);
         Footer::status(&segments)
             .styles(styles)
+            .version("bench", env!("CARGO_PKG_VERSION"))
             .render(Rect::new(0, 0, WIDTH, 1), &mut buffer);
-        let wrapped = Footer::new(&HINTS).styles(styles).wrap(true);
+        let wrapped = Footer::new(&HINTS)
+            .styles(styles)
+            .wrap(true)
+            .version("bench", env!("CARGO_PKG_VERSION"));
         let narrow = Rect::new(0, 2, 60, wrapped.height(60));
         wrapped.render(narrow, &mut buffer);
         if frame % 2 == 0 {

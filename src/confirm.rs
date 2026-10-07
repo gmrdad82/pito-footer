@@ -1,6 +1,6 @@
 use ratatui::{
     buffer::Buffer,
-    layout::Rect,
+    layout::{Position, Rect},
     style::{Modifier, Style},
     widgets::Widget,
 };
@@ -270,9 +270,16 @@ impl Widget for ConfirmBar<'_> {
 
 impl Widget for &ConfirmBar<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        self.paint(area, buf);
+    }
+}
+
+impl ConfirmBar<'_> {
+    pub(crate) fn paint(&self, area: Rect, buf: &mut Buffer) -> Option<Position> {
         if area.is_empty() {
-            return;
+            return None;
         }
+        let mut end = None;
         let mut y = area.y;
         let styles = self.look();
         if self.rule {
@@ -294,14 +301,17 @@ impl Widget for &ConfirmBar<'_> {
                 && let Some(hint) = self.words.hint
             {
                 pen.indented(hint, muted);
-                return;
+                return Some(Position::new(pen.x, y));
             }
+            end = Some(Position::new(pen.x, y));
             y += 1;
         }
         if let Some(hint) = self.words.hint
             && let Some(mut pen) = Pen::new(buf, area, area.x, y)
         {
             pen.indented(hint, muted);
+            end = Some(Position::new(pen.x, y));
         }
+        end
     }
 }

@@ -13,6 +13,7 @@ use crate::text::{self, Pen};
 
 const SEPARATOR: &str = " · ";
 const MOST: usize = 64;
+const BESIDE: u16 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
@@ -248,6 +249,8 @@ pub struct Footer<'a> {
     notice: Option<Notice<'a>>,
     confirm: Option<ConfirmBar<'a>>,
     input: Option<InputBar<'a>>,
+    name: &'a str,
+    version: &'a str,
     separator: &'a str,
     gap: u16,
     indent: u16,
@@ -265,6 +268,8 @@ impl<'a> Footer<'a> {
             notice: None,
             confirm: None,
             input: None,
+            name: "",
+            version: "",
             separator: SEPARATOR,
             gap: 1,
             indent: 0,
@@ -295,6 +300,12 @@ impl<'a> Footer<'a> {
 
     pub fn input(mut self, input: Option<InputBar<'a>>) -> Self {
         self.input = input;
+        self
+    }
+
+    pub fn version(mut self, name: &'a str, version: &'a str) -> Self {
+        self.name = name;
+        self.version = version;
         self
     }
 
@@ -444,14 +455,42 @@ impl<'a> Footer<'a> {
 
     fn line_count(&self, width: u16) -> u16 {
         if !self.any_visible() {
-            return 0;
+            return u16::from(self.tag(width) > 0);
         }
         if !self.wrapping() {
             return 1;
         }
-        let mut lines = 0;
-        self.flow(width, |_, line, _| lines = line + 1);
-        lines
+        self.flow(width, |_, _, _| {}).0
+    }
+
+    fn tag(&self, width: u16) -> u16 {
+        if self.version.is_empty() {
+            return 0;
+        }
+        let mut total = text::width(self.version);
+        if !self.version.starts_with('v') {
+            total = total.saturating_add(1);
+        }
+        if !self.name.is_empty() {
+            total = total
+                .saturating_add(text::width(self.name))
+                .saturating_add(1);
+        }
+        if total > width { 0 } else { total }
+    }
+
+    fn beside(&self) -> u16 {
+        self.gap.max(BESIDE)
+    }
+
+    fn natural_line(&self) -> u16 {
+        let (total, shown) = (0..self.count())
+            .map(|index| self.natural(&self.segment(index)))
+            .filter(|width| *width > 0)
+            .fold((0u16, 0u16), |(total, shown), width| {
+                (total.saturating_add(width), shown + 1)
+            });
+        total.saturating_add(self.gap.saturating_mul(shown.saturating_sub(1)))
     }
 
     fn pinned(&self) -> Footer<'a> {
@@ -464,15 +503,16 @@ impl<'a> Footer<'a> {
         }
     }
 
-    fn has_pinned(&self) -> bool {
-        (0..self.count()).any(|index| match self.segment(index).part {
-            Part::Hints(hints) => hints.iter().any(|hint| hint.pinned),
-            Part::Text(..) | Part::Spans(..) => false,
-        })
+    fn has_pinned(&self, width: u16) -> bool {
+        self.tag(width) > 0
+            || (0..self.count()).any(|index| match self.segment(index).part {
+                Part::Hints(hints) => hints.iter().any(|hint| hint.pinned),
+                Part::Text(..) | Part::Spans(..) => false,
+            })
     }
 
     fn pinned_lines(&self, width: u16) -> u16 {
-        if !self.takes_over(width) || !self.has_pinned() {
+        if !self.takes_over(width) || !self.has_pinned(width) {
             return 0;
         }
         self.pinned().line_count(width)
@@ -483,15 +523,23 @@ impl<'a> Footer<'a> {
             .is_some_and(|notice| notice.over && text::width(notice.text) > width)
     }
 
-    fn flow(&self, width: u16, mut each: impl FnMut(usize, u16, bool)) {
+    fn flow(&self, width: u16, mut each: impl FnMut(usize, u16, bool)) -> (u16, Option<u16>) {
         let separator = text::width(self.separator);
+        let tag = self.tag(width);
+        let reserve = tag.saturating_add(self.beside());
+        let last = self.hints.iter().rposition(|hint| self.visible(hint));
+        let mut shared = false;
         let mut line = 0;
         let mut used = 0u16;
         for (index, hint) in self.hints.iter().enumerate() {
             if !self.visible(hint) {
                 continue;
             }
-            let wide = hint.width();
+            let mut wide = hint.width();
+            if tag > 0 && Some(index) == last && wide.saturating_add(reserve) <= width {
+                wide += reserve;
+                shared = true;
+            }
             if used > 0 && used.saturating_add(separator).saturating_add(wide) > width {
                 line += 1;
                 used = 0;
@@ -502,6 +550,13 @@ impl<'a> Footer<'a> {
             }
             used = used.saturating_add(wide);
             each(index, line, first);
+        }
+        match (last, tag > 0) {
+            (None, false) => (0, None),
+            (None, true) => (1, Some(0)),
+            (Some(_), false) => (line + 1, None),
+            (Some(_), true) if shared => (line + 1, Some(line)),
+            (Some(_), true) => (line + 2, Some(line + 1)),
         }
     }
 
@@ -661,7 +716,47 @@ impl<'a> Footer<'a> {
         }
     }
 
+    fn draw_tag(&self, buf: &mut Buffer, line: Rect) {
+        let tag = self.tag(line.width);
+        if tag == 0 {
+            return;
+        }
+        let Some(mut pen) = Pen::new(buf, line, line.right() - tag, line.y) else {
+            return;
+        };
+        let style = self.styles.muted;
+        if !self.name.is_empty() {
+            pen.put(self.name, style);
+            pen.put(" ", style);
+        }
+        if !self.version.starts_with('v') {
+            pen.put("v", style);
+        }
+        pen.put(self.version, style);
+    }
+
+    fn draw_tag_after(&self, buf: &mut Buffer, line: Rect, used: u16) -> Rect {
+        let tag = self.tag(line.width);
+        let beside = if used == 0 { 0 } else { self.beside() };
+        if tag == 0 || used.saturating_add(beside).saturating_add(tag) > line.width {
+            return line;
+        }
+        self.draw_tag(buf, line);
+        Rect {
+            width: line.width - tag - beside,
+            ..line
+        }
+    }
+
+    fn draw_tag_at(&self, buf: &mut Buffer, body: Rect, end: Option<Position>) {
+        if let Some(end) = end {
+            let line = Rect::new(body.x, end.y, body.width, 1);
+            self.draw_tag_after(buf, line, end.x.saturating_sub(body.x));
+        }
+    }
+
     fn draw_line(&self, buf: &mut Buffer, line: Rect) {
+        let line = self.draw_tag_after(buf, line, self.natural_line());
         let fit = self.fit(line.width);
         self.draw_side(buf, line, &fit, false);
         self.draw_side(buf, line, &fit, true);
@@ -670,7 +765,7 @@ impl<'a> Footer<'a> {
     fn draw_wrapped(&self, buf: &mut Buffer, area: Rect) -> u16 {
         let mut x = area.x;
         let mut last = 0;
-        self.flow(area.width, |index, line, first| {
+        let (_, tag) = self.flow(area.width, |index, line, first| {
             if line >= area.height {
                 return;
             }
@@ -687,6 +782,15 @@ impl<'a> Footer<'a> {
             self.hints[index].draw(&mut pen, self.styles.lit(), self.styles.muted, room);
             x = pen.x;
         });
+        if let Some(row) = tag
+            && row < area.height
+        {
+            self.draw_tag(
+                buf,
+                Rect::new(area.x, area.y.saturating_add(row), area.width, 1),
+            );
+            last = last.max(row + 1);
+        }
         last
     }
 }
@@ -714,11 +818,13 @@ impl Widget for &Footer<'_> {
         };
         let rest = |y: u16| Rect::new(area.x, y, area.width, area.bottom().saturating_sub(y));
         if let Some(confirm) = self.confirm {
-            confirm.rule(false).styled(self.styles).render(body, buf);
+            let end = confirm.rule(false).styled(self.styles).paint(body, buf);
+            self.draw_tag_at(buf, body, end);
             return;
         }
         if let Some(input) = self.input {
-            input.rule(false).styled(self.styles).render(body, buf);
+            let end = input.rule(false).styled(self.styles).paint(body, buf);
+            self.draw_tag_at(buf, body, end);
             return;
         }
         if self.takes_over(area.width)

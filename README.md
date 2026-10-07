@@ -8,7 +8,7 @@ own: the app passes in every hint, every word, every key and every style, so
 any language works.
 
 ```toml
-pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.3.0" }
+pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.4.0" }
 ```
 
 Turn on the `crossterm` feature for `Key::from(crossterm::event::KeyEvent)`
@@ -54,6 +54,19 @@ is how AltGr arrives on some platforms, so diacritics can still be typed.
   several styles, so a percentage or page dots carry their own colour; it
   measures, drops and shrinks as one segment and clips with one ellipsis in
   the style of the span it cuts. `Segment::text(text, style)` still works.
+- **The app's version:** `version(name, version)` draws `name v1.2.3` in the
+  muted style at the right end of the row of keys: the hint row (the last one
+  when hints wrap, the status row of `Footer::status` right of every segment),
+  or the hint line of a carried confirm or input, else that bar's only row.
+  It takes only the room nothing else needs: it is never clipped and never
+  pushes out a hint or a segment, so it is the first thing to go, whole, when
+  the width runs out. When hints wrap, the last hint moves down a row rather
+  than leave it no room; when `?` hides every hint, it keeps a row of its own;
+  under an over notice it stays on the last row. `height(width)` counts those
+  rows and `shown` is unchanged. A version that starts with `v` keeps its own,
+  an empty name draws just `v1.2.3`, and without a version nothing is drawn.
+  A right-aligned `Segment::text` can show a version too, but it takes its
+  cells from the hints by rank, or is clipped when it shrinks.
 - **A confirm, in the bottom bar or a notice row.** `Confirm` holds the
   choice (No unless the app starts it on Yes); `ConfirmKeys` sets the yes and
   no keys, the keys that switch the choice (`toggle`) and the keys that accept
@@ -123,7 +136,7 @@ Segment::text(text, style) | spans(&[(text, Style)]) | hints(&[Hint]);
 Footer::new(&[Hint]) | status(&[Segment])
   .notice(Option<Notice>).confirm(Option<ConfirmBar>).input(Option<InputBar>)
   .separator(..).gap(u16).open(bool).help(&Help).rule(bool).wrap(bool)
-  .indent(u16).styles(..)
+  .indent(u16).styles(..).version(name, version)   // "name v1.2.3", dim, right end
   height(width), shown(key, width), cursor(area) -> Option<Position>
 ConfirmKeys { yes, no, toggle, accept: &'static [Key], choose }   // non_exhaustive
   ConfirmKeys::HEY, ConfirmKeys::ENTER; .yes(..) .no(..) .toggle(..) .accept(..) .choose(bool)
@@ -181,6 +194,7 @@ fn draw(frame: &mut Frame, guard: &QuitGuard, help: &Help) {
     let styles = Styles::new().accent(Style::new().fg(Color::Magenta)).muted(dim).rule(dim);
     let words = Words::new("Yes", "No").hint("y/n choose · enter accept · esc cancel");
     let footer = Footer::new(&HINTS).styles(styles).help(help)
+        .version("app", env!("CARGO_PKG_VERSION"))
         .notice(guard.notice().map(Notice::accent))
         .confirm(guard.bar(words));
     let area = frame.area();

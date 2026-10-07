@@ -498,10 +498,8 @@ impl<'a> InputBar<'a> {
         Some(field)
     }
 
-    fn draw_field(&self, buf: &mut Buffer, field: &Field) {
-        let Some(mut pen) = Pen::new(buf, field.line, field.x, field.line.y) else {
-            return;
-        };
+    fn draw_field(&self, buf: &mut Buffer, field: &Field) -> Option<Position> {
+        let mut pen = Pen::new(buf, field.line, field.x, field.line.y)?;
         let styles = self.look();
         let ink = styles.ink;
         let muted = styles.muted;
@@ -521,7 +519,7 @@ impl<'a> InputBar<'a> {
                 }
                 None => pen.put(CARET, caret(ink)),
             }
-            return;
+            return Some(Position::new(pen.x, field.line.y));
         }
         if field.start > 0 {
             pen.put(ELLIPSIS, muted);
@@ -545,6 +543,7 @@ impl<'a> InputBar<'a> {
         } else if field.cursor == field.count {
             pen.put(CARET, caret(ink));
         }
+        Some(Position::new(pen.x, field.line.y))
     }
 }
 
@@ -556,25 +555,32 @@ impl Widget for InputBar<'_> {
 
 impl Widget for &InputBar<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        self.paint(area, buf);
+    }
+}
+
+impl InputBar<'_> {
+    pub(crate) fn paint(&self, area: Rect, buf: &mut Buffer) -> Option<Position> {
         if area.is_empty() {
-            return;
+            return None;
         }
         let styles = self.look();
         if self.rule {
             text::rule(buf, area, styles.rule);
         }
-        let Some(field) = self.field(area) else {
-            return;
-        };
+        let field = self.field(area)?;
         if let Some(mut pen) = Pen::new(buf, field.line, field.line.x, field.line.y) {
             let style = self.tone.style(&styles).add_modifier(Modifier::BOLD);
             pen.clip(self.label, style, self.label_width(field.line.width));
         }
-        self.draw_field(buf, &field);
+        let end = self.draw_field(buf, &field);
+        let y = field.line.y.saturating_add(1);
         if let Some(hint) = self.hint
-            && let Some(mut pen) = Pen::new(buf, area, area.x, field.line.y.saturating_add(1))
+            && let Some(mut pen) = Pen::new(buf, area, area.x, y)
         {
             pen.indented(hint, styles.muted);
+            return Some(Position::new(pen.x, y));
         }
+        end
     }
 }
