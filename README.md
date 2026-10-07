@@ -1,5 +1,7 @@
 # pito-footer
 
+[![CI](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml/badge.svg)](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml)
+
 The bottom of a pito terminal app, as a small ratatui 0.30 crate: key hints
 that fit the width, a notice line, a y/n confirm, a one-line input, and a
 quit guard. The look
@@ -249,9 +251,20 @@ A bracketed paste arrives as its own event, not a key: hand its text to
 --all-features -- -D warnings`, `cargo test --all-features` (the tests draw
 through ratatui's `TestBackend`, a counting allocator holds that drawing
 allocates nothing, and this README's example compiles as a doctest) and
-builds the bench. `bin/gate --fast` leaves the bench build out.
+builds the bench. `bin/gate --fast` leaves the bench build out, and CI runs
+it on every push and pull request to main. Each release is listed in
+[CHANGELOG.md](CHANGELOG.md).
+
+## Contributing
+
+Issues and pull requests are welcome. Please read the
+[code of conduct](CODE_OF_CONDUCT.md) first. A change keeps `bin/gate` green
+with no warnings, draws without allocating, and leaves every word, style and
+key to the app.
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE). The look is in the style of HEY's terminal UI;
-see [NOTICE.md](NOTICE.md).
+The code is MIT licensed: see [LICENSE](LICENSE). The PITO name and its logos
+are © Catalin Ilinca, all rights reserved, and are not covered by the MIT
+licence. The look is in the style of HEY's terminal UI; see
+[NOTICE.md](NOTICE.md).
