@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="docs/demo.gif" alt="The demo example: a task list whose footer shows its key hints and version, a notice, a search input, a delete confirm, the hints hidden by ? and the ctrl+c guard">
-</p>
+<p align="center"><img src="docs/demo.gif" alt="The demo example: a task list whose footer shows its key hints and version, a notice, a search input, a delete confirm, the hints hidden by ? and the ctrl+c guard"></p>
 
 # pito-footer
 
