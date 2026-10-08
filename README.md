@@ -1,8 +1,11 @@
+<p align="center">
+  <img src="docs/demo.gif" alt="The demo example: a task list whose footer shows its key hints and version, a notice, a search input, a delete confirm, the hints hidden by ? and the ctrl+c guard">
+</p>
+
 # pito-footer
 
 [![CI](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml/badge.svg)](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml)
-
-![The demo example: a task list whose footer shows its key hints and version, a notice, a search input, a delete confirm, the hints hidden by ? and the ctrl+c guard](docs/demo.gif)
+[![Version](https://img.shields.io/github/v/tag/gmrdad82/pito-footer)](https://github.com/gmrdad82/pito-footer/tags)
 
 The bottom of a [PITO](https://pitomd.com) terminal app, as a small ratatui
 0.30 crate: key hints that fit the width, a notice line, a y/n confirm, a
