@@ -11,6 +11,8 @@ one-line input, and a quit guard. The look is in the style of HEY's terminal
 UI. It has no app logic and no words of its own: the app passes in every hint,
 every word, every key and every style, so any language works.
 
+Works on Linux, Windows and macOS (CI-tested on all three).
+
 ## Install
 
 Add it to the app's `Cargo.toml`:
