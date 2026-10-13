@@ -4,6 +4,10 @@ Every release of pito-footer, newest first. Versions follow [Semantic
 Versioning](https://semver.org/) as Cargo reads it before 1.0: a change in the
 middle number may break an app, a change in the last one never does.
 
+## Unreleased
+
+- The brand now reads PITO MD in the README and TRADEMARKS.md.
+
 ## 0.4.0 (2026-10-07)
 
 - `Footer::version(name, version)` draws the app's `name v1.2.3` in the muted

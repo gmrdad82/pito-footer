@@ -5,8 +5,8 @@
 [![CI](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml/badge.svg)](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/v/tag/gmrdad82/pito-footer)](https://github.com/gmrdad82/pito-footer/tags)
 
-The bottom of a [PITO](https://pitomd.com) terminal app, as a small ratatui
-0.30 crate: key hints that fit the width, a notice line, a y/n confirm, a
+The bottom of a [PITO MD](https://pitomd.com) terminal app, as a small
+ratatui 0.30 crate: key hints that fit the width, a notice line, a y/n confirm, a
 one-line input, and a quit guard. The look is in the style of HEY's terminal
 UI. It has no app logic and no words of its own: the app passes in every hint,
 every word, every key and every style, so any language works.
@@ -285,7 +285,7 @@ key to the app. Report a security issue privately, as
 
 ## Licence
 
-The code is MIT licensed: see [LICENSE](LICENSE). The PITO name and its logos
+The code is MIT licensed: see [LICENSE](LICENSE). The PITO MD name and its logos
 are © Catalin Ilinca, all rights reserved, and are not covered by the MIT
 licence; see [TRADEMARKS.md](TRADEMARKS.md). The look is in the style of HEY's
 terminal UI; see [NOTICE.md](NOTICE.md).
