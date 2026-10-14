@@ -428,6 +428,8 @@ key to the app. Report a security issue privately, as
 
 ## Licence
 
+<img src="assets/marks/pitomd.svg" width="160" alt="The PITO MD mark">
+
 The code is MIT licensed: see [LICENSE](LICENSE). The PITO MD name and its logos
 are © Catalin Ilinca, all rights reserved, and are not covered by the MIT
 licence; see [TRADEMARKS.md](TRADEMARKS.md). The look is in the style of HEY's
