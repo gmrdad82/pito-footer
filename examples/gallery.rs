@@ -148,12 +148,9 @@ fn status(frame: &mut Frame) {
     );
     let segments = [
         Segment::text(" NORMAL ", ACCENT.add_modifier(Modifier::REVERSED)),
-        Segment::text(
-            "3 of 1,204 selected in this view",
-            Style::new(),
-        )
-        .shrink()
-        .rank(1),
+        Segment::text("3 of 1,204 selected in this view", Style::new())
+            .shrink()
+            .rank(1),
         Segment::hints(&SHORT).rank(4),
         Segment::text("12:30", DIM).right().rank(3),
         Segment::spans(&PAGE).right().rank(2),
