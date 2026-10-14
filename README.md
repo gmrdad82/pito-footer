@@ -428,7 +428,7 @@ key to the app. Report a security issue privately, as
 
 ## Licence
 
-<img src="assets/marks/pitomd.svg" width="160" alt="The PITO MD mark">
+<img src="assets/marks/wordmark.svg" width="320" alt="PITO MD">
 
 The code is MIT licensed: see [LICENSE](LICENSE). The PITO MD name and its logos
 are © Catalin Ilinca, all rights reserved, and are not covered by the MIT

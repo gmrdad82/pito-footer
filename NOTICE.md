@@ -13,7 +13,7 @@ with prec from `examples/demo.rs` and `examples/gallery.rs` (the shots in
 and `status.png` are prec stills of `examples/gallery.rs`; `speed.png` is drawn
 by pito-compare from `render/bench.toml`, the numbers of `examples/bench.rs`.
 
-The PITO MD mark in `assets/marks/pitomd.svg` is copied by `bin/marks` from the
-PITO MD brand masters at fe97f221c8c071389283144c416f4fcde87b3958. The PITO MD
+The PITO MD wordmark in `assets/marks/wordmark.svg` is copied by `bin/marks`
+from the PITO MD brand masters at aa3aee8b232a1b848995bf3d9a012a01d4aff8ec. The PITO MD
 name and its logos are © Catalin Ilinca, all rights reserved and not covered by
 the MIT licence (TRADEMARKS.md).
