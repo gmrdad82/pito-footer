@@ -26,7 +26,7 @@ Works on Linux, Windows and macOS (CI-tested on all three).
 The same line on Linux, Windows and macOS, in the app's `Cargo.toml`:
 
 ```toml
-pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v0.4.0" }
+pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v1.0.0" }
 ratatui = "0.30"
 ```
 
@@ -143,7 +143,7 @@ each drawing twelve hints with a notice, a status row of five segments, the
 hints wrapped at 60 columns, a confirm bar, an input bar holding diacritics and
 wide glyphs, and a masked input bar, timing each part. Measured once on
 2026-10-14 on an AMD Ryzen 9 9950X under Linux with Rust 1.97.1, release
-profile, at 0.4.0, while other renders ran on the machine: a mean of 38.5 µs a
+profile, on the code released as 1.0.0, while other renders ran on the machine: a mean of 38.5 µs a
 frame for all six. The chart is drawn with
 [pito-compare](https://github.com/gmrdad82/pito-compare) from
 [render/bench.toml](render/bench.toml).

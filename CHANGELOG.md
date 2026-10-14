@@ -1,17 +1,30 @@
 # Changelog
 
 Every release of pito-footer, newest first. Versions follow [Semantic
-Versioning](https://semver.org/) as Cargo reads it before 1.0: a change in the
-middle number may break an app, a change in the last one never does.
+Versioning](https://semver.org/): a change in the first number may break an
+app, a change in the other two never does; before 1.0 the middle number played
+that part.
 
-## Unreleased
+## v1.0.0 — 2026-10-14
 
-- The brand now reads PITO MD in the README and TRADEMARKS.md.
-- The README shows each part with a picture, a quick start and measured numbers:
-  38.5 µs to draw every widget at 150×40, with no allocation.
-- The bench example times each part of the footer on its own.
-- A gallery example draws one scene per part: hints at several widths, notices,
-  the status row, the input and the confirm with the quit guard.
+pito-footer is 1.0. The API is the one 0.4.0 shipped.
+
+### Added
+
+- A demo example: a task list with the footer at its bottom
+  (`cargo run --example demo --features crossterm`).
+- A gallery example draws one scene for each part of the footer: hints at
+  several widths, the notice tones, the status row, the input, and the confirm
+  with the quit guard.
+- The bench example times each part on its own: 38.5 µs to draw every widget
+  at 150×40, with no allocation.
+
+### Changed
+
+- The README shows each part with a picture, starts with a quick start, and
+  gives the measured speed and size.
+- CI tests every change on Linux, Windows and macOS.
+- The brand reads PITO MD.
 
 ## 0.4.0 (2026-10-07)
 
