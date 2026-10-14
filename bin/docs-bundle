@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+crate=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
+tag=${1:-v$crate}
+if [ "$tag" != "v$crate" ]; then
+    echo "docs-bundle: $tag does not match Cargo.toml's version $crate" >&2
+    exit 1
+fi
+out=tmp/docs-bundle
+rm -rf "$out"
+mkdir -p "$out/docs/images"
+cp -R docs/pages/. "$out/docs/"
+cp docs/images/*.png docs/images/*.gif "$out/docs/images/"
+{
+    printf -- '---\ntitle: Changelog\ndescription: Every release of pito-footer, newest first.\nsidebar:\n  order: 90\n---\n\n'
+    sed '1{/^# /d;}' CHANGELOG.md
+} > "$out/docs/changelog.md"
+cargo doc --no-deps --all-features --locked --target-dir tmp/docs-target
+cp -R tmp/docs-target/doc "$out/docs/api"
+tar -czf "tmp/docs-$tag.tar.gz" -C "$out" docs
+echo "tmp/docs-$tag.tar.gz"

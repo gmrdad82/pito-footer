@@ -5,6 +5,16 @@ Versioning](https://semver.org/): a change in the first number may break an
 app, a change in the other two never does; before 1.0 the middle number played
 that part.
 
+## v1.0.1 — 2026-10-14
+
+The code is the same as 1.0.0; this release adds the docs.
+
+### Added
+
+- Guides for every part of the footer, an install page and the API
+  reference, bundled as `docs-v1.0.1.tar.gz` on the GitHub Release for the
+  PITO MD docs site.
+
 ## v1.0.0 — 2026-10-14
 
 pito-footer is 1.0. The API is the one 0.4.0 shipped.

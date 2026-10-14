@@ -26,7 +26,7 @@ Works on Linux, Windows and macOS (CI-tested on all three).
 The same line on Linux, Windows and macOS, in the app's `Cargo.toml`:
 
 ```toml
-pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v1.0.0" }
+pito-footer = { git = "https://github.com/gmrdad82/pito-footer", tag = "v1.0.1" }
 ratatui = "0.30"
 ```
 
@@ -412,6 +412,11 @@ builds the bench; clippy checks the demo example too.
 `bin/gate --fast` leaves the bench build out, and CI runs
 it on every push and pull request to main. Each release is listed in
 [CHANGELOG.md](CHANGELOG.md).
+
+`bin/docs-bundle` builds the docs into `tmp/docs-vX.Y.Z.tar.gz`: the guides in
+`docs/pages/`, the pictures in `docs/images/`, the changelog and the
+`cargo doc` API reference. A tag's release workflow attaches that bundle to
+its GitHub Release.
 
 ## Contributing
 
