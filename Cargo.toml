@@ -27,3 +27,7 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm_0
 [[example]]
 name = "demo"
 required-features = ["crossterm"]
+
+[[example]]
+name = "gallery"
+required-features = ["crossterm"]

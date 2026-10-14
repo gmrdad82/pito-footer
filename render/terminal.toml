@@ -5,8 +5,11 @@ frame = "window"
 typing = "35ms"
 
 [build]
-command = "cargo build --release --locked --example demo --features crossterm"
+command = "cargo build --release --locked --example demo --example gallery --features crossterm"
 bin_dir = "{target}/release/examples"
+
+[env]
+HOME = "home"
 
 [theme]
 name = "pito-footer"
@@ -39,3 +42,40 @@ launch = "demo"
 settle = "1s"
 closure = { crossfade = 0.5 }
 status = "SHIPPED"
+
+[shots.fit]
+kind = "still"
+line = "One set of hints at four widths and wrapped: the highest rank drops first, the pinned hint stays"
+tape = "render/terminal/still.tape"
+launch = "gallery fit"
+settle = "1s"
+
+[shots.notices]
+kind = "still"
+line = "The notice line in each tone, and an over notice that wraps across the hint rows"
+tape = "render/terminal/still.tape"
+launch = "gallery notices"
+settle = "1s"
+
+[shots.status]
+kind = "still"
+line = "Footer::status at four widths: segments dropped and clipped by rank, the version first to go"
+tape = "render/terminal/still.tape"
+launch = "gallery status"
+settle = "1s"
+
+[shots.input]
+kind = "clip"
+line = "The one-line input with diacritics and wide glyphs, scrolling and word delete, and a masked key field"
+tape = "render/terminal/input.tape"
+launch = "gallery input"
+settle = "1s"
+closure = { crossfade = 0.5 }
+
+[shots.confirm]
+kind = "clip"
+line = "A y/n confirm over the hint line, then the quit guard arming and asking while an import runs"
+tape = "render/terminal/confirm.tape"
+launch = "gallery confirm"
+settle = "1s"
+closure = { crossfade = 0.5 }

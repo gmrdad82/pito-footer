@@ -7,6 +7,11 @@ middle number may break an app, a change in the last one never does.
 ## Unreleased
 
 - The brand now reads PITO MD in the README and TRADEMARKS.md.
+- The README shows each part with a picture, a quick start and measured numbers:
+  38.5 µs to draw every widget at 150×40, with no allocation.
+- The bench example times each part of the footer on its own.
+- A gallery example draws one scene per part: hints at several widths, notices,
+  the status row, the input and the confirm with the quit guard.
 
 ## 0.4.0 (2026-10-07)
 

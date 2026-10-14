@@ -68,9 +68,10 @@ fn main() {
     let confirm = Confirm::new();
     let area = Rect::new(0, 0, WIDTH, HEIGHT);
     let mut buffer = Buffer::empty(area);
+    let mut parts = [Duration::ZERO; 6];
     let mut total = Duration::ZERO;
     let mut worst = Duration::ZERO;
-    for frame in 0..frames {
+    for _ in 0..frames {
         buffer.reset();
         let started = Instant::now();
         let footer = Footer::new(&HINTS)
@@ -81,38 +82,56 @@ fn main() {
             )));
         let height = footer.height(WIDTH);
         footer.render(Rect::new(0, HEIGHT - height, WIDTH, height), &mut buffer);
+        let hints = Instant::now();
         Footer::status(&segments)
             .styles(styles)
             .version("bench", env!("CARGO_PKG_VERSION"))
             .render(Rect::new(0, 0, WIDTH, 1), &mut buffer);
+        let status = Instant::now();
         let wrapped = Footer::new(&HINTS)
             .styles(styles)
             .wrap(true)
             .version("bench", env!("CARGO_PKG_VERSION"));
         let narrow = Rect::new(0, 2, 60, wrapped.height(60));
         wrapped.render(narrow, &mut buffer);
-        if frame % 2 == 0 {
-            ConfirmBar::new("Stop the import of 12 items?", &confirm, words)
-                .styles(styles)
-                .render(Rect::new(0, 20, WIDTH, 3), &mut buffer);
-        } else {
-            InputBar::new("Search", &input)
-                .hint("enter search · esc cancel")
-                .styles(styles)
-                .render(Rect::new(0, 20, 48, 3), &mut buffer);
-            InputBar::new("Key", &key)
-                .styles(styles)
-                .render(Rect::new(0, 24, WIDTH, 2), &mut buffer);
-        }
-        let took = started.elapsed();
+        let wrap = Instant::now();
+        ConfirmBar::new("Stop the import of 12 items?", &confirm, words)
+            .styles(styles)
+            .render(Rect::new(0, 20, WIDTH, 3), &mut buffer);
+        let confirmed = Instant::now();
+        InputBar::new("Search", &input)
+            .hint("enter search · esc cancel")
+            .styles(styles)
+            .render(Rect::new(0, 26, 48, 3), &mut buffer);
+        let typed = Instant::now();
+        InputBar::new("Key", &key)
+            .styles(styles)
+            .render(Rect::new(0, 30, WIDTH, 2), &mut buffer);
+        let masked = Instant::now();
         black_box(&buffer);
+        let marks = [started, hints, status, wrap, confirmed, typed, masked];
+        for (part, pair) in parts.iter_mut().zip(marks.windows(2)) {
+            *part += pair[1] - pair[0];
+        }
+        let took = masked - started;
         total += took;
         worst = worst.max(took);
     }
-    let mean = total / frames.max(1);
+    let micros = |time: Duration| time.as_secs_f64() * 1e6 / f64::from(frames.max(1));
     println!(
         "pito-footer bench: {frames} frames at {WIDTH}x{HEIGHT}: mean {:.1} µs, worst {:.1} µs",
-        mean.as_secs_f64() * 1e6,
+        micros(total),
         worst.as_secs_f64() * 1e6
     );
+    let names = [
+        "hints and notice",
+        "status row",
+        "wrapped hints",
+        "confirm bar",
+        "input bar",
+        "masked input bar",
+    ];
+    for (name, part) in names.iter().zip(parts) {
+        println!("  {name}: {:.2} µs", micros(part));
+    }
 }
