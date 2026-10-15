@@ -41,7 +41,8 @@ jobs:
       - uses: taiki-e/install-action@183e4297cca2404691e9380e1307288dced5c82a
         with:
           tool: cargo-nextest
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      - id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
             ~/.cargo/registry/index
@@ -54,3 +55,12 @@ jobs:
         run: bin/gate --fast
       - if: github.event_name != 'push' || github.ref == 'refs/heads/main'
         run: bin/gate
+      - if: github.ref == 'refs/heads/main' && steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: ${{ steps.cache.outputs.cache-primary-key }}
