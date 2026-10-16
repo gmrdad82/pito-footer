@@ -48,7 +48,7 @@ together with [pito-header](https://docs.pitomd.com/pito-header/) at the top,
 [pito-list](https://docs.pitomd.com/pito-list/) for the rows and
 [pito-hourglass](https://docs.pitomd.com/pito-hourglass/) while data loads.
 The clips are recorded with [prec](https://docs.pitomd.com/prec/) and made into
-GIFs with [pconv](https://docs.pitomd.com/pconv/), and the speed chart is drawn
+GIFs with [pcod](https://github.com/gmrdad82/pito-codecs), and the speed chart is drawn
 by [pito-compare](https://docs.pitomd.com/pito-compare/).
 
 The code is MIT licensed. The PITO MD name and its logos are © Catalin Ilinca,

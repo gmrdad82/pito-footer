@@ -168,7 +168,7 @@ it together with [pito-header](https://github.com/gmrdad82/pito-header) at the
 top, [pito-list](https://github.com/gmrdad82/pito-list) for the rows and
 [pito-hourglass](https://github.com/gmrdad82/pito-hourglass) while data loads.
 The clips above are recorded with [prec](https://github.com/gmrdad82/prec) and
-made into GIFs with [pconv](https://github.com/gmrdad82/pconv), and the chart is
+made into GIFs with [pcod](https://github.com/gmrdad82/pito-codecs), and the chart is
 drawn by [pito-compare](https://github.com/gmrdad82/pito-compare).
 
 ## Every feature in detail
