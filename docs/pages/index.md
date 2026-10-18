@@ -22,7 +22,7 @@ language works.
   unicode-segmentation (crossterm 0.29 only with the `crossterm` feature).
 - **2,078 lines** of Rust, rebuilt in **1.5 s** after a change.
 
-Works on Linux, Windows and macOS (CI-tested on all three).
+Works on Linux, Windows and macOS.
 
 ## Where to go next
 

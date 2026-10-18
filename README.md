@@ -2,7 +2,6 @@
 
 # pito-footer
 
-[![CI](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml/badge.svg)](https://github.com/gmrdad82/pito-footer/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/v/tag/gmrdad82/pito-footer)](https://github.com/gmrdad82/pito-footer/tags)
 
 The bottom of a [PITO MD](https://pitomd.com) terminal app, as a small
@@ -19,7 +18,7 @@ in every hint, every word, every key and every style, so any language works.
   unicode-segmentation (crossterm 0.29 only with the `crossterm` feature).
 - **2,078 lines** of Rust, rebuilt in **1.5 s** after a change.
 
-Works on Linux, Windows and macOS (CI-tested on all three).
+Works on Linux, Windows and macOS.
 
 ## Install and first use
 
@@ -409,14 +408,12 @@ A bracketed paste arrives as its own event, not a key: hand its text to
 through ratatui's `TestBackend`, a counting allocator holds that drawing
 allocates nothing, and this README's example compiles as a doctest) and
 builds the bench; clippy checks the demo example too.
-`bin/gate --fast` leaves the bench build out, and CI runs
-it on every push and pull request to main. Each release is listed in
+`bin/gate --fast` leaves the bench build out. Each release is listed in
 [CHANGELOG.md](CHANGELOG.md).
 
 `bin/docs-bundle` builds the docs into `tmp/docs-vX.Y.Z.tar.gz`: the guides in
 `docs/pages/`, the pictures in `docs/images/`, the changelog and the
-`cargo doc` API reference. A tag's release workflow attaches that bundle to
-its GitHub Release.
+`cargo doc` API reference. Each GitHub Release carries that bundle.
 
 ## Contributing
 
