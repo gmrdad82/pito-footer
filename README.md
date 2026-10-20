@@ -20,6 +20,8 @@ in every hint, every word, every key and every style, so any language works.
 
 Works on Linux, Windows and macOS.
 
+Got questions or doubts? Ping me on Discord: https://discord.gg/XsNcn3kYzn
+
 ## Install and first use
 
 The same line on Linux, Windows and macOS, in the app's `Cargo.toml`:
