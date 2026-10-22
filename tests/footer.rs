@@ -410,12 +410,29 @@ fn the_gap_moves_the_hints_that_follow_a_segment() {
     let status = Footer::status(&right).styles(STYLES);
     assert_eq!(row(status, 20), "         main q quit");
     assert_eq!(row(status.gap(4), 20), "      main    q quit");
+    let tagged = Footer::status(&segments[1..])
+        .styles(STYLES)
+        .version("app", "1.0");
+    assert_eq!(row(tagged, 16), "q quit  app v1.0");
+    assert_eq!(row(tagged.gap(4), 16), "q quit");
+    assert_eq!(row(tagged.gap(4), 18), "q quit    app v1.0");
+    let wrapped = Footer::new(&QUIT)
+        .rule(false)
+        .wrap(true)
+        .version("app", "1.0");
+    assert_eq!(wrapped.height(16), 1);
+    assert_eq!(draw(wrapped, 16, 1).text, ["q quit  app v1.0"]);
+    assert_eq!(wrapped.gap(4).height(16), 2);
+    assert_eq!(
+        draw(wrapped.gap(4), 16, 2).text,
+        ["q quit", "        app v1.0"]
+    );
 }
 
 #[test]
 fn the_alert_style_colours_an_alert_notice_and_nothing_else() {
     const QUIT: [Hint; 1] = [Hint::new("q", "quit")];
-    let red = std::hint::black_box(Style::new().fg(Color::Red));
+    let red = Style::new().fg(Color::Red);
     let base = Styles::new()
         .accent(Style::new().fg(Color::Magenta))
         .muted(Style::new().fg(Color::DarkGray));

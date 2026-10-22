@@ -321,7 +321,7 @@ fn an_over_notice_that_ends_on_a_space_stops_at_the_last_word() {
 }
 
 #[test]
-fn an_over_notice_whose_first_glyph_is_wider_than_the_row_draws_nothing_above_the_last_row() {
+fn an_over_notice_whose_first_glyph_is_wider_than_the_row_draws_nothing_until_it_is_the_last_row() {
     let footer = Footer::new(&[])
         .rule(false)
         .notice(Some(Notice::legend("漢字").over()));
