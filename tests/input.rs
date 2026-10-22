@@ -349,3 +349,38 @@ fn crossterm_home_end_and_delete_convert() {
     assert_eq!(key(KeyCode::End), Key::End);
     assert_eq!(key(KeyCode::Delete), Key::Delete);
 }
+
+#[test]
+fn is_masked_follows_the_builder() {
+    assert!(!Input::new().is_masked());
+    let masked = Input::new().with("pw").masked(true);
+    assert!(masked.is_masked());
+    assert_eq!(masked.value(), "pw");
+    assert!(!masked.clone().masked(false).is_masked());
+    assert!(!typed("abc").is_masked());
+}
+
+#[test]
+fn edit_debug_names_each_variant_and_never_prints_a_submitted_value() {
+    assert_eq!(format!("{:?}", Edit::Pass), "Pass");
+    assert_eq!(format!("{:?}", Edit::Held), "Held");
+    assert_eq!(format!("{:?}", Edit::Changed), "Changed");
+    assert_eq!(format!("{:?}", Edit::Cancel), "Cancel");
+    let secret = Edit::Submit("hunter2".to_string());
+    assert_eq!(format!("{secret:?}"), "Submit(<7 bytes>)");
+    assert_eq!(format!("{secret:#?}"), "Submit(<7 bytes>)");
+    assert_eq!(
+        format!("{:?}", Edit::Submit("ață".to_string())),
+        "Submit(<5 bytes>)"
+    );
+    assert_eq!(
+        format!("{:?}", Edit::Submit(String::new())),
+        "Submit(<0 bytes>)"
+    );
+    let mut input = typed("s3cret-pass").masked(true);
+    let edit = input.key(Key::Enter);
+    assert_eq!(edit, Edit::Submit("s3cret-pass".to_string()));
+    let debug = format!("{edit:?} {edit:#?} {:?}", [&edit]);
+    assert!(!debug.contains("s3cret"), "{debug}");
+    assert!(!debug.contains("pass"), "{debug}");
+}

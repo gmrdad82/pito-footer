@@ -84,3 +84,50 @@ fn status_segments_keep_their_own_style() {
         only_rules_dim(&render(footer, width, 2), &[0]);
     }
 }
+
+#[cfg(feature = "crossterm")]
+#[test]
+fn crossterm_named_keys_map_to_their_key_and_alt_or_other_modifiers_win() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers as M};
+    use pito_footer::Key;
+    let key = |code, modifiers| Key::from(KeyEvent::new(code, modifiers));
+    let table = [
+        (KeyCode::Tab, M::NONE, Key::Tab),
+        (KeyCode::Tab, M::SHIFT, Key::BackTab),
+        (KeyCode::BackTab, M::NONE, Key::BackTab),
+        (KeyCode::BackTab, M::SHIFT, Key::BackTab),
+        (KeyCode::Backspace, M::NONE, Key::Backspace),
+        (KeyCode::Backspace, M::SHIFT, Key::Backspace),
+        (KeyCode::Enter, M::NONE, Key::Enter),
+        (KeyCode::Esc, M::NONE, Key::Esc),
+        (KeyCode::Left, M::NONE, Key::Left),
+        (KeyCode::Right, M::NONE, Key::Right),
+        (KeyCode::Up, M::NONE, Key::Up),
+        (KeyCode::Down, M::NONE, Key::Down),
+        (KeyCode::Home, M::NONE, Key::Home),
+        (KeyCode::End, M::NONE, Key::End),
+        (KeyCode::Delete, M::NONE, Key::Delete),
+        (KeyCode::F(5), M::NONE, Key::Other),
+        (KeyCode::F(1), M::SHIFT, Key::Other),
+        (KeyCode::Insert, M::NONE, Key::Other),
+        (KeyCode::Tab, M::ALT, Key::Other),
+        (KeyCode::Tab, M::ALT | M::SHIFT, Key::Other),
+        (KeyCode::BackTab, M::ALT, Key::Other),
+        (KeyCode::Backspace, M::ALT, Key::Other),
+        (KeyCode::Right, M::ALT, Key::Other),
+        (KeyCode::Up, M::SUPER, Key::Other),
+        (KeyCode::Down, M::HYPER, Key::Other),
+        (KeyCode::End, M::META, Key::Other),
+        (KeyCode::Enter, M::SUPER, Key::Other),
+        (KeyCode::Tab, M::CONTROL | M::ALT, Key::Other),
+    ];
+    for (code, modifiers, want) in table {
+        assert_eq!(key(code, modifiers), want, "{code:?} with {modifiers:?}");
+    }
+    let mut release = KeyEvent::new(KeyCode::Tab, M::NONE);
+    release.kind = KeyEventKind::Release;
+    assert_eq!(Key::from(release), Key::Other);
+    let mut repeat = KeyEvent::new(KeyCode::Down, M::NONE);
+    repeat.kind = KeyEventKind::Repeat;
+    assert_eq!(Key::from(repeat), Key::Down);
+}

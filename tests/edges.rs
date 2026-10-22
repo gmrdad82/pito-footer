@@ -309,3 +309,66 @@ fn crossterm_carries_alt_and_lets_altgr_through() {
     let mut confirm = Confirm::new();
     assert_eq!(confirm.key(key(KeyCode::Char('y'), M::ALT)), None);
 }
+
+#[test]
+fn an_over_notice_that_ends_on_a_space_stops_at_the_last_word() {
+    let footer = Footer::new(&[])
+        .rule(false)
+        .notice(Some(Notice::legend("aaaa ").over()));
+    assert_eq!(footer.height(4), 1);
+    let drawn = draw(footer, 4, 3);
+    assert_eq!(drawn.text, ["aaaa", "", ""]);
+}
+
+#[test]
+fn an_over_notice_whose_first_glyph_is_wider_than_the_row_draws_nothing_above_the_last_row() {
+    let footer = Footer::new(&[])
+        .rule(false)
+        .notice(Some(Notice::legend("漢字").over()));
+    assert_eq!(draw(footer, 1, 3).text, ["", "", ""]);
+    assert_eq!(draw(footer, 1, 1).text, ["…"]);
+}
+
+#[test]
+fn an_area_taller_than_the_buffer_draws_only_the_rows_inside_it() {
+    let over = Footer::new(&[])
+        .rule(false)
+        .notice(Some(Notice::legend("aaaa bbbb cccc").over()));
+    let mut buf = Buffer::empty(Rect::new(0, 0, 6, 1));
+    over.render(Rect::new(0, 0, 6, 3), &mut buf);
+    assert_eq!(common::read(&buf).text, ["aaaa"]);
+    const HINTS: [Hint; 2] = [Hint::new("a", "alpha"), Hint::new("b", "bravo")];
+    let wrapped = Footer::new(&HINTS).rule(false).wrap(true);
+    assert_eq!(wrapped.height(12), 2);
+    assert_eq!(draw(wrapped, 12, 2).text, ["a alpha", "b bravo"]);
+    let mut buf = Buffer::empty(Rect::new(0, 0, 12, 1));
+    wrapped.render(Rect::new(0, 0, 12, 2), &mut buf);
+    assert_eq!(common::read(&buf).text, ["a alpha"]);
+}
+
+#[test]
+fn an_area_outside_the_buffer_leaves_it_untouched() {
+    const QUIT: [Hint; 1] = [Hint::new("q", "quit")];
+    let footer = Footer::new(&QUIT).rule(false).version("app", "1.0");
+    assert_eq!(draw(footer, 20, 1).text, ["q quit      app v1.0"]);
+    let empty = Buffer::empty(Rect::new(0, 0, 20, 1));
+    let mut buf = empty.clone();
+    footer.render(Rect::new(0, 2, 20, 1), &mut buf);
+    assert_eq!(buf, empty);
+    footer.rule(true).render(Rect::new(0, 2, 20, 2), &mut buf);
+    footer
+        .notice(Some(Notice::legend("far too long for this row").over()))
+        .render(Rect::new(0, 2, 10, 3), &mut buf);
+    assert_eq!(buf, empty);
+}
+
+#[test]
+fn a_line_break_that_lands_on_the_edge_of_a_cut_notice_is_not_drawn() {
+    let footer = Footer::new(&[])
+        .rule(false)
+        .notice(Some(Notice::legend("ab\ncd")));
+    let drawn = draw(footer, 3, 1);
+    assert_eq!(drawn.text, ["ab…"]);
+    assert_eq!(draw(footer, 5, 1).text, ["ab cd"]);
+    assert_eq!(draw(footer, 4, 1).text, ["ab …"]);
+}

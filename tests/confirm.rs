@@ -193,3 +193,35 @@ fn a_good_tone_suits_a_confirm_too() {
     assert_eq!(buf[(0, 1)].fg, Color::Green);
     assert_eq!(buf[(0, 1)].modifier, Modifier::BOLD);
 }
+
+#[test]
+fn the_defaults_are_the_hey_keys_and_a_no_start() {
+    assert_eq!(ConfirmKeys::default(), ConfirmKeys::HEY);
+    assert_ne!(ConfirmKeys::default(), ConfirmKeys::ENTER);
+    assert_eq!(Confirm::default(), Confirm::new());
+    assert_ne!(Confirm::default(), Confirm::new().keys(ConfirmKeys::ENTER));
+    let mut confirm = Confirm::default();
+    assert!(!confirm.yes());
+    assert!(confirm.choosing());
+    assert_eq!(confirm.key(Key::Enter), Some(Answer::No));
+    assert_eq!(confirm.key(Key::Tab), None);
+    assert!(confirm.yes());
+    assert_eq!(confirm.key(Key::Enter), Some(Answer::Yes));
+    assert_eq!(confirm.key(Key::Esc), Some(Answer::No));
+}
+
+#[test]
+fn a_bar_with_a_rule_in_one_row_draws_the_rule_alone() {
+    let confirm = Confirm::new();
+    let bar = ConfirmBar::new("Stop the import?", &confirm, WORDS).styles(STYLES);
+    let drawn = draw(bar, 20, 1);
+    assert_eq!(drawn.text, ["─".repeat(20)], "\n{}", show(&drawn));
+    assert_eq!(drawn.marks, ["r".repeat(20)], "\n{}", show(&drawn));
+    let mut buf = Buffer::empty(Rect::new(0, 0, 20, 3));
+    bar.render(Rect::new(0, 1, 20, 1), &mut buf);
+    for x in 0..20 {
+        assert_eq!(buf[(x, 0)].symbol(), " ", "({x}, 0)");
+        assert_eq!(buf[(x, 1)].symbol(), "─", "({x}, 1)");
+        assert_eq!(buf[(x, 2)].symbol(), " ", "({x}, 2)");
+    }
+}

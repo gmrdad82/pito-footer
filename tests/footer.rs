@@ -1,7 +1,7 @@
 mod common;
 
 use common::{STYLES, draw, show, widest};
-use pito_footer::{Footer, Help, Hint, Key, Notice, Segment, Tone};
+use pito_footer::{Footer, Help, Hint, Key, Notice, Segment, Styles, Tone};
 use ratatui::style::{Color, Style};
 
 const HINTS: [Hint; 6] = [
@@ -387,4 +387,63 @@ fn a_status_text_carries_several_styled_spans() {
             "{width}"
         );
     }
+}
+
+#[test]
+fn the_gap_moves_the_hints_that_follow_a_segment() {
+    const QUIT: [Hint; 1] = [Hint::new("q", "quit")];
+    let segments = [
+        Segment::text("main", Style::new().fg(Color::White)),
+        Segment::hints(&QUIT),
+    ];
+    let row = |footer: Footer, width: u16| draw(footer, width, 1).text.remove(0);
+    let status = Footer::status(&segments).styles(STYLES);
+    assert_eq!(row(status, 30), "main q quit");
+    assert_eq!(row(status.gap(3), 30), "main   q quit");
+    assert_eq!(row(status.gap(0), 30), "mainq quit");
+    assert_eq!(row(status.gap(1), 12), "main q quit");
+    assert_eq!(row(status.gap(3), 12), "main   q qu…");
+    let right = [
+        Segment::text("main", Style::new().fg(Color::White)).right(),
+        Segment::hints(&QUIT).right(),
+    ];
+    let status = Footer::status(&right).styles(STYLES);
+    assert_eq!(row(status, 20), "         main q quit");
+    assert_eq!(row(status.gap(4), 20), "      main    q quit");
+}
+
+#[test]
+fn the_alert_style_colours_an_alert_notice_and_nothing_else() {
+    const QUIT: [Hint; 1] = [Hint::new("q", "quit")];
+    let red = std::hint::black_box(Style::new().fg(Color::Red));
+    let base = Styles::new()
+        .accent(Style::new().fg(Color::Magenta))
+        .muted(Style::new().fg(Color::DarkGray));
+    let footer = Footer::new(&QUIT)
+        .rule(false)
+        .styles(base.alert(red))
+        .notice(Some(Notice::alert("boom")));
+    assert_eq!(footer.height(20), 2);
+    let drawn = draw(footer, 20, 2);
+    assert_eq!(drawn.text, ["q quit", "boom"], "\n{}", show(&drawn));
+    assert_eq!(drawn.marks, ["Ammmmm", "xxxx"], "\n{}", show(&drawn));
+    let plain = draw(footer.styles(base), 20, 2);
+    assert_eq!(plain.text, ["q quit", "boom"], "\n{}", show(&plain));
+    assert_eq!(plain.marks, ["Ammmmm", ""], "\n{}", show(&plain));
+    let legend = draw(footer.notice(Some(Notice::legend("boom"))), 20, 2);
+    assert_eq!(legend.marks, ["Ammmmm", "mmmm"], "\n{}", show(&legend));
+}
+
+#[test]
+fn closed_hints_with_no_room_for_the_tag_take_no_line_and_show_no_key() {
+    const QUIT: [Hint; 1] = [Hint::new("q", "quit")];
+    let open = Footer::new(&QUIT).rule(false).version("app", "1.0.0");
+    assert!(open.shown("q", 40));
+    let closed = open.open(false);
+    assert_eq!(closed.height(5), 0);
+    assert!(!closed.shown("q", 5));
+    assert!(!closed.shown("q", 40));
+    assert_eq!(closed.height(40), 1);
+    assert_eq!(draw(closed, 5, 1).text, [""]);
+    assert_eq!(draw(closed, 20, 1).text, ["          app v1.0.0"]);
 }
