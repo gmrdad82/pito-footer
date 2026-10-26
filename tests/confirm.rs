@@ -131,8 +131,8 @@ fn narrow_bars_clip_the_question_and_keep_the_choices() {
     let bar =
         ConfirmBar::new("Stop the import of every item?", &Confirm::new(), WORDS).styles(STYLES);
     let drawn = draw(bar, 24, 3);
-    assert_eq!(drawn.text[1], "Stop the im…  Yes   ▸ No");
-    assert_eq!(drawn.text[2], "  y/n choose · enter ac…");
+    assert_eq!(drawn.text[1], "Stop the…     Yes   ▸ No");
+    assert_eq!(drawn.text[2], "  y/n choose…");
     for width in 1..=60 {
         assert!(
             widest(&draw(bar, width, 3)) <= usize::from(width),

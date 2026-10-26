@@ -58,7 +58,7 @@ fn the_least_important_hints_drop_first_and_order_is_kept() {
     assert_eq!(line(48), "↑↓ move · enter open · ctrl+c twice quit");
     assert_eq!(line(39), "↑↓ move · ctrl+c twice quit");
     assert_eq!(line(26), "ctrl+c twice quit");
-    assert_eq!(line(10), "ctrl+c tw…");
+    assert_eq!(line(10), "ctrl+c …");
 }
 
 #[test]
@@ -212,7 +212,7 @@ fn a_long_notice_over_the_hints_wraps_in_their_place() {
         drawn.text[1..],
         [
             "The import failed: the file",
-            "could not be read because ano…",
+            "could not be read because…",
             "ctrl+c twice quit",
         ],
         "\n{}",
@@ -304,9 +304,9 @@ fn status_segments_drop_and_shrink_by_rank() {
     );
     assert_eq!(
         line(50),
-        " NORMAL  3 selec… ctrl+c twice quit 12:30 page 1/2"
+        " NORMAL  …        ctrl+c twice quit 12:30 page 1/2"
     );
-    assert_eq!(line(30), " NORMAL  3 sel… 12:30 page 1/2");
+    assert_eq!(line(30), " NORMAL  …      12:30 page 1/2");
     assert_eq!(line(8), " NORMAL");
     for width in 1..=130 {
         assert!(
@@ -373,12 +373,12 @@ fn a_status_text_carries_several_styled_spans() {
     assert_eq!(drawn.text[0], "copied 42% of 3 files             ●○○ v2");
     assert_eq!(drawn.marks[0], "mmmmmmmgggmmmmmmmmmmm             amm mm");
     let drawn = draw(status, 17, 1);
-    assert_eq!(drawn.text[0], "copied 42… ●○○ v2");
-    assert_eq!(drawn.marks[0], "mmmmmmmggg amm mm");
+    assert_eq!(drawn.text[0], "copied…    ●○○ v2");
+    assert_eq!(drawn.marks[0], "mmmmmmm    amm mm");
     let drawn = draw(status, 15, 1);
-    assert_eq!(drawn.text[0], "copied … ●○○ v2");
-    assert_eq!(drawn.marks[0], "mmmmmmmg amm mm");
-    assert_eq!(draw(status, 3, 1).text[0], "co…");
+    assert_eq!(drawn.text[0], "copied…  ●○○ v2");
+    assert_eq!(drawn.marks[0], "mmmmmmm  amm mm");
+    assert_eq!(draw(status, 3, 1).text[0], "…");
     let empty = [("", GRAY)];
     assert_eq!(Footer::status(&[Segment::spans(&empty)]).height(40), 0);
     for width in 1..=50 {
@@ -402,7 +402,7 @@ fn the_gap_moves_the_hints_that_follow_a_segment() {
     assert_eq!(row(status.gap(3), 30), "main   q quit");
     assert_eq!(row(status.gap(0), 30), "mainq quit");
     assert_eq!(row(status.gap(1), 12), "main q quit");
-    assert_eq!(row(status.gap(3), 12), "main   q qu…");
+    assert_eq!(row(status.gap(3), 12), "main   q …");
     let right = [
         Segment::text("main", Style::new().fg(Color::White)).right(),
         Segment::hints(&QUIT).right(),
@@ -463,4 +463,33 @@ fn closed_hints_with_no_room_for_the_tag_take_no_line_and_show_no_key() {
     assert_eq!(closed.height(40), 1);
     assert_eq!(draw(closed, 5, 1).text, [""]);
     assert_eq!(draw(closed, 20, 1).text, ["          app v1.0.0"]);
+}
+
+#[test]
+fn a_cut_label_keeps_whole_words_and_ends_in_an_ellipsis() {
+    let hints = [Hint::new("q", "quit the whole program now")];
+    let row = |width: u16| {
+        draw(Footer::new(&hints).rule(false), width, 1)
+            .text
+            .remove(0)
+    };
+    assert_eq!(row(40), "q quit the whole program now");
+    assert_eq!(row(16), "q quit the…");
+    assert_eq!(row(12), "q quit the…");
+    assert_eq!(row(9), "q quit…");
+    assert_eq!(row(4), "q …");
+}
+
+#[test]
+fn a_cut_legend_drops_whole_parts_between_separators() {
+    let row = |width: u16| {
+        let footer = Footer::new(&[])
+            .rule(false)
+            .notice(Some(Notice::legend("build · deploy api · tests")));
+        draw(footer, width, 1).text.remove(0)
+    };
+    assert_eq!(row(26), "build · deploy api · tests");
+    assert_eq!(row(22), "build · deploy api…");
+    assert_eq!(row(12), "build…");
+    assert_eq!(row(5), "…");
 }

@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod confirm;
+mod cut;
 mod footer;
 mod input;
 mod key;

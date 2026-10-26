@@ -1,3 +1,4 @@
+use crate::cut;
 use ratatui::{buffer::Buffer, layout::Rect, style::Style};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -13,6 +14,13 @@ fn plain(text: &str) -> bool {
 fn pieces(text: &str) -> impl Iterator<Item = &str> {
     text.split(char::is_control)
         .filter(|piece| !piece.is_empty())
+}
+
+fn flat(text: &str) -> String {
+    if plain(text) {
+        return text.to_string();
+    }
+    pieces(text).collect::<Vec<_>>().join(" ")
 }
 
 fn cells(text: &str) -> u16 {
@@ -160,34 +168,46 @@ impl<'a> Pen<'a> {
     }
 
     pub(crate) fn spans(&mut self, spans: &[(&str, Style)], room: u16) {
-        let stop = self.x.saturating_add(room.min(self.room()));
-        for (index, (text, style)) in spans.iter().enumerate() {
-            let room = stop.saturating_sub(self.x);
-            if spans_width(&spans[index..]) <= room {
-                for (text, style) in &spans[index..] {
-                    self.put(text, *style);
-                }
-                return;
-            }
-            if width(text) < room {
+        let room = room.min(self.room());
+        if spans_width(spans) <= room {
+            for (text, style) in spans {
                 self.put(text, *style);
-                continue;
             }
-            return self.cut(text, *style, room);
+            return;
         }
+        let owned: Vec<(String, Style)> = spans
+            .iter()
+            .map(|(text, style)| (flat(text), *style))
+            .collect();
+        self.cut_spans(&owned, room);
     }
 
     pub(crate) fn cut(&mut self, text: &str, style: Style, room: u16) {
-        let room = room.min(self.room());
+        let owned = [(flat(text), style)];
+        self.cut_spans(&owned, room.min(self.room()));
+    }
+
+    fn cut_spans(&mut self, spans: &[(String, Style)], room: u16) {
         if room == 0 {
             return;
         }
-        let stop = self.x + room - 1;
-        self.putn(text, style, room - 1);
-        self.x = self.x.min(stop);
-        self.put(ELLIPSIS, style);
+        let keep = cut::keep(
+            spans.iter().map(|(text, _)| text.as_str()),
+            usize::from(room),
+        );
+        let Some(keep) = keep else {
+            for (text, style) in spans {
+                self.put(text, *style);
+            }
+            return;
+        };
+        let mut parts: Vec<(&str, Style)> = Vec::new();
+        let last = cut::kept(spans, keep, |text, style| parts.push((text, style)));
+        for (text, style) in parts {
+            self.put(text, style);
+        }
+        self.put(ELLIPSIS, last);
     }
-
     pub(crate) fn fill(&mut self, symbol: &str, style: Style) {
         while self.x < self.right {
             self.buf[(self.x, self.y)]

@@ -76,7 +76,11 @@ impl<'a> Hint<'a> {
                 pen.clip(" ", muted, stop.saturating_sub(pen.x));
             }
             first = false;
+            let start = pen.x;
             pen.clip(part, style, stop.saturating_sub(pen.x));
+            if pen.x - start < text::width(part) {
+                break;
+            }
         }
     }
 }

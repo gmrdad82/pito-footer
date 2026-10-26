@@ -292,7 +292,11 @@ impl ConfirmBar<'_> {
             let room = area.width.saturating_sub(choices);
             let least = text::width(self.question).min(area.width / 2).max(1);
             if room >= least {
+                let stop = pen.x.saturating_add(room);
                 pen.clip(self.question, self.question_style(), room);
+                if text::width(self.question) > room {
+                    pen.skip(stop.saturating_sub(pen.x));
+                }
                 self.draw_choices(&mut pen);
             } else {
                 pen.clip(self.question, self.question_style(), area.width);
