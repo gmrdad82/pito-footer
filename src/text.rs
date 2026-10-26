@@ -1,3 +1,4 @@
+use crate::cut;
 use ratatui::{buffer::Buffer, layout::Rect, style::Style};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -160,32 +161,33 @@ impl<'a> Pen<'a> {
     }
 
     pub(crate) fn spans(&mut self, spans: &[(&str, Style)], room: u16) {
-        let stop = self.x.saturating_add(room.min(self.room()));
-        for (index, (text, style)) in spans.iter().enumerate() {
-            let room = stop.saturating_sub(self.x);
-            if spans_width(&spans[index..]) <= room {
-                for (text, style) in &spans[index..] {
-                    self.put(text, *style);
-                }
-                return;
-            }
-            if width(text) < room {
+        let room = room.min(self.room());
+        if spans_width(spans) <= room {
+            for (text, style) in spans {
                 self.put(text, *style);
-                continue;
             }
-            return self.cut(text, *style, room);
+            return;
         }
+        self.cut_spans(spans, room);
     }
 
     pub(crate) fn cut(&mut self, text: &str, style: Style, room: u16) {
-        let room = room.min(self.room());
+        self.cut_spans(&[(text, style)], room.min(self.room()));
+    }
+
+    fn cut_spans(&mut self, spans: &[(&str, Style)], room: u16) {
         if room == 0 {
             return;
         }
-        let stop = self.x + room - 1;
-        self.putn(text, style, room - 1);
-        self.x = self.x.min(stop);
-        self.put(ELLIPSIS, style);
+        let glyphs = spans.iter().flat_map(|(text, _)| cut::graphemes(text));
+        let Some(keep) = cut::keep(glyphs, usize::from(room)) else {
+            for (text, style) in spans {
+                self.put(text, *style);
+            }
+            return;
+        };
+        let last = cut::kept(spans, keep, |text, style| self.put(text, style));
+        self.put(ELLIPSIS, last);
     }
 
     pub(crate) fn fill(&mut self, symbol: &str, style: Style) {

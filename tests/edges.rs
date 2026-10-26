@@ -43,7 +43,7 @@ fn control_characters_take_no_cell_and_do_not_glue_words() {
         "error: build failed see the log"
     );
     assert_eq!(row("a\r\nb\tc", 10), "a b c");
-    assert_eq!(row("line one\nline2", 12), "line one li…");
+    assert_eq!(row("line one\nline2", 12), "line one…");
     assert_eq!(row("abc\n", 3), "abc");
     assert_eq!(row("\nabc", 3), "abc");
 }
@@ -197,7 +197,7 @@ fn the_question_survives_a_narrow_width() {
         let row = draw(bar, width, 1).text.remove(0);
         let first = row.chars().next().expect("something is drawn");
         assert!(first == 'S' || first == '…', "{width}: {row:?}");
-        if width >= 4 {
+        if width >= 5 {
             assert!(row.starts_with('S'), "{width}: {row:?}");
         }
         assert!(
@@ -209,7 +209,7 @@ fn the_question_survives_a_narrow_width() {
         let bar = ConfirmBar::new(question, &confirm, words).rule(false);
         draw(bar, width, 1).text.remove(0)
     };
-    assert_eq!(row(12), "Stop the im…");
+    assert_eq!(row(12), "Stop the…");
     assert_eq!(row(44), "Stop the import?  Yes   ▸ No");
     assert!(row(30).ends_with("Yes   ▸ No"), "{:?}", row(30));
 }
@@ -370,5 +370,5 @@ fn a_line_break_that_lands_on_the_edge_of_a_cut_notice_is_not_drawn() {
     let drawn = draw(footer, 3, 1);
     assert_eq!(drawn.text, ["ab…"]);
     assert_eq!(draw(footer, 5, 1).text, ["ab cd"]);
-    assert_eq!(draw(footer, 4, 1).text, ["ab …"]);
+    assert_eq!(draw(footer, 4, 1).text, ["ab…"]);
 }
