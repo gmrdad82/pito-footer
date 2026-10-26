@@ -5,6 +5,12 @@ Versioning](https://semver.org/): a change in the first number may break an
 app, a change in the other two never does; before 1.0 the middle number played
 that part.
 
+## v1.1.0 — 2026-10-26
+
+### Changed
+
+- Footer and legend text that doesn't fit is cut after a whole word (or after `/`, `-` or `_` in a name) and ends with "…", never in the middle of a word or right after a number; whole " · " parts drop first. Drawing still allocates nothing.
+- The README shows the PITO MD wordmark in its Licence section and names pcod as the tool that makes the demo GIFs.
 ## v1.0.1 — 2026-10-14
 
 The code is the same as 1.0.0; this release adds the docs.
