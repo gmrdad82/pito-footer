@@ -16,13 +16,6 @@ fn pieces(text: &str) -> impl Iterator<Item = &str> {
         .filter(|piece| !piece.is_empty())
 }
 
-fn flat(text: &str) -> String {
-    if plain(text) {
-        return text.to_string();
-    }
-    pieces(text).collect::<Vec<_>>().join(" ")
-}
-
 fn cells(text: &str) -> u16 {
     u16::try_from(text.width()).unwrap_or(u16::MAX)
 }
@@ -175,39 +168,28 @@ impl<'a> Pen<'a> {
             }
             return;
         }
-        let owned: Vec<(String, Style)> = spans
-            .iter()
-            .map(|(text, style)| (flat(text), *style))
-            .collect();
-        self.cut_spans(&owned, room);
+        self.cut_spans(spans, room);
     }
 
     pub(crate) fn cut(&mut self, text: &str, style: Style, room: u16) {
-        let owned = [(flat(text), style)];
-        self.cut_spans(&owned, room.min(self.room()));
+        self.cut_spans(&[(text, style)], room.min(self.room()));
     }
 
-    fn cut_spans(&mut self, spans: &[(String, Style)], room: u16) {
+    fn cut_spans(&mut self, spans: &[(&str, Style)], room: u16) {
         if room == 0 {
             return;
         }
-        let keep = cut::keep(
-            spans.iter().map(|(text, _)| text.as_str()),
-            usize::from(room),
-        );
-        let Some(keep) = keep else {
+        let glyphs = spans.iter().flat_map(|(text, _)| cut::graphemes(text));
+        let Some(keep) = cut::keep(glyphs, usize::from(room)) else {
             for (text, style) in spans {
                 self.put(text, *style);
             }
             return;
         };
-        let mut parts: Vec<(&str, Style)> = Vec::new();
-        let last = cut::kept(spans, keep, |text, style| parts.push((text, style)));
-        for (text, style) in parts {
-            self.put(text, style);
-        }
+        let last = cut::kept(spans, keep, |text, style| self.put(text, style));
         self.put(ELLIPSIS, last);
     }
+
     pub(crate) fn fill(&mut self, symbol: &str, style: Style) {
         while self.x < self.right {
             self.buf[(self.x, self.y)]

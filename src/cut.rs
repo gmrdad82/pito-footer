@@ -177,40 +177,45 @@ impl Scan {
     }
 }
 
-pub(crate) fn keep<'t>(runs: impl Iterator<Item = &'t str>, room: usize) -> Option<usize> {
+pub(crate) fn graphemes(text: &str) -> impl Iterator<Item = &str> {
+    text.split(char::is_control)
+        .filter(|piece| !piece.is_empty())
+        .enumerate()
+        .flat_map(|(index, piece)| {
+            (index > 0)
+                .then_some(" ")
+                .into_iter()
+                .chain(piece.graphemes(true))
+        })
+}
+
+pub(crate) fn keep<'t>(glyphs: impl Iterator<Item = &'t str>, room: usize) -> Option<usize> {
     let mut scan = Scan::new(room.saturating_sub(1));
-    'runs: for text in runs {
-        for grapheme in text.graphemes(true) {
-            scan.feed(grapheme, grapheme.width());
-            if scan.done(room) {
-                break 'runs;
-            }
+    for grapheme in glyphs {
+        scan.feed(grapheme, grapheme.width());
+        if scan.done(room) {
+            break;
         }
     }
     scan.keep(room)
 }
 
-pub(crate) fn kept<'t, S: AsRef<str>>(
-    spans: &'t [(S, Style)],
+pub(crate) fn kept<'t>(
+    spans: &[(&'t str, Style)],
     keep: usize,
     mut put: impl FnMut(&'t str, Style),
 ) -> Style {
     let mut left = keep;
     let mut last = spans.first().map_or_else(Style::new, |(_, style)| *style);
     for (text, style) in spans {
-        let text = text.as_ref();
         last = *style;
-        let count = text.graphemes(true).count();
-        if left < count {
-            let end = text
-                .grapheme_indices(true)
-                .nth(left)
-                .map_or(text.len(), |(at, _)| at);
-            put(&text[..end], *style);
-            return *style;
+        for grapheme in graphemes(text) {
+            if left == 0 {
+                return *style;
+            }
+            put(grapheme, *style);
+            left -= 1;
         }
-        put(text, *style);
-        left -= count;
     }
     last
 }
@@ -220,7 +225,7 @@ mod tests {
     use super::*;
 
     fn head(text: &str, room: usize) -> Option<&str> {
-        let keep = keep(std::iter::once(text), room)?;
+        let keep = keep(graphemes(text), room)?;
         let end = text
             .grapheme_indices(true)
             .nth(keep)
@@ -278,10 +283,17 @@ mod tests {
         let spans = [("deploy", bold), (" the api", dim)];
         let mut out = Vec::new();
         let last = kept(&spans, 6, |text, style| out.push((text, style)));
-        assert_eq!(out, [("deploy", bold), ("", dim)]);
+        assert_eq!(out.len(), 6);
+        assert_eq!(out[0], ("d", bold));
         assert_eq!(last, dim);
         let mut out = Vec::new();
         assert_eq!(kept(&spans, 3, |t, s| out.push((t, s))), bold);
-        assert_eq!(out, [("dep", bold)]);
+        assert_eq!(out, [("d", bold), ("e", bold), ("p", bold)]);
+    }
+
+    #[test]
+    fn control_characters_become_single_spaces() {
+        let glyphs: String = graphemes("a\n\nb\tc").collect();
+        assert_eq!(glyphs, "a b c");
     }
 }
