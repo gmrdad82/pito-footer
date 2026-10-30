@@ -1,0 +1,16 @@
+name = "pito-footer"
+preset = "rust"
+
+[gate]
+fast = "cargo fmt --check && cargo clippy --all-targets --all-features -- -D warnings"
+full = "bin/gate"
+
+[commands]
+build = "cargo build --release --locked --example bench"
+release = ""
+deploy = ""
+install = ""
+
+[[test_track.jobs]]
+name = "gate"
+command = "bin/gate"
